@@ -1,0 +1,54 @@
+name: Database backup
+
+# Free Supabase/Render databases have no backups you can rely on, so this
+# workflow dumps the database weekly, encrypts it with age, and keeps it as a
+# private workflow artifact for 90 days. Restore steps: docs/OPERATIONS.md.
+# Repository secrets:
+#   BACKUP_DATABASE_URL  Supabase connection string (use the session pooler / direct URL)
+#   BACKUP_AGE_RECIPIENT age public key (age1...); keep the private key OFF GitHub
+on:
+  schedule:
+    - cron: "43 2 * * 0" # Sundays 02:43 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check configuration
+        id: cfg
+        env:
+          DB: ${{ secrets.BACKUP_DATABASE_URL }}
+          KEY: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+        run: |
+          if [ -z "$DB" ] || [ -z "$KEY" ]; then echo "Backup secrets not set; skipping."; echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Install tools
+        if: steps.cfg.outputs.skip != 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age postgresql-common
+          # pg_dump must be at least as new as the server (Supabase runs PostgreSQL 15/17).
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+      - name: Dump and encrypt
+        if: steps.cfg.outputs.skip != 'true'
+        env:
+          DB: ${{ secrets.BACKUP_DATABASE_URL }}
+          KEY: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+        run: |
+          set -euo pipefail
+          STAMP=$(date -u +%Y%m%dT%H%MZ)
+          /usr/lib/postgresql/17/bin/pg_dump --format=custom --no-owner --no-privileges "$DB" | age -r "$KEY" > "projectos-$STAMP.dump.age"
+          ls -l projectos-*.dump.age
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        if: steps.cfg.outputs.skip != 'true'
+        with:
+          name: projectos-backup-${{ env.STAMP }}
+          path: projectos-*.dump.age
+          retention-days: 90
+          if-no-files-found: error

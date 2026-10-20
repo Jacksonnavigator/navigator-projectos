@@ -27,6 +27,7 @@ def task_bar(task: Task, milestones: dict[uuid.UUID, Milestone]) -> dict[str, An
     else:
         start, start_src = task.created_at.date(), "created"
     ms = milestones.get(task.milestone_id) if task.milestone_id else None
+    end: date | None
     if task.due_date:
         end, end_src = task.due_date, "local"
     elif task.gh_board_end:

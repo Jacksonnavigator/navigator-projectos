@@ -84,7 +84,7 @@ def build_dashboard(db: Session) -> dict[str, Any]:
                 }
             )
     for p in db.scalars(select(Project).where(live, Project.target_date.is_not(None), Project.target_date <= soon)):
-        if p.lifecycle in ("deployed", "archived"):
+        if p.lifecycle in ("deployed", "archived") or p.target_date is None:
             continue
         upcoming.append(
             {
@@ -95,7 +95,7 @@ def build_dashboard(db: Session) -> dict[str, Any]:
                 "project_name": p.name,
                 "project_id": p.id,
                 "overdue": p.target_date < today,
-            }  # type: ignore[operator]
+            }
         )
     upcoming.sort(key=lambda x: x["date"])
 
@@ -151,9 +151,8 @@ def build_dashboard(db: Session) -> dict[str, Any]:
     for t in serialize_tasks(db, overdue[:5]):
         next_actions.append({"reason": "overdue", "task": t})
     week = today + timedelta(days=7)
-    for t in serialize_tasks(
-        db, [x for x in due_soon if (x.due_date or x.gh_board_end) and (x.due_date or x.gh_board_end) <= week][:5]
-    ):  # type: ignore[operator]
+    this_week = [x for x in due_soon if (d := x.due_date or x.gh_board_end) is not None and d <= week]
+    for t in serialize_tasks(db, this_week[:5]):
         next_actions.append({"reason": "due_this_week", "task": t})
     for t in serialize_tasks(db, [x for x in in_progress if x.status == "blocked"][:3]):
         next_actions.append({"reason": "blocked", "task": t})
