@@ -80,5 +80,5 @@ Then point Render's `DATABASE_URL` at the restored database and redeploy. Restor
 * [x] Production refuses to start with dev login on, default secrets, http URLs or local file storage.
 * [x] Logs exclude query strings (OAuth codes) and redact token-like fields.
 * [x] Exports never include tokens or session data.
-* [ ] Supabase: rotate the database password and `service_role` key if they ever leak; never paste them into the register.
+* [ ] Supabase: rotate the database password and secret key (`sb_secret_…`) if they ever leak; never paste them into the register.
 * [ ] Review `npm audit` / `pip-audit` output when upgrading.

@@ -70,11 +70,12 @@ class SupabaseStorage:
             raise StorageError("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set for Supabase storage")
         self.base = url.rstrip("/") + "/storage/v1"
         self.bucket = bucket
-        self._http = httpx.Client(
-            timeout=60.0,
-            headers={"Authorization": f"Bearer {service_key}", "apikey": service_key},
-            transport=transport,
-        )
+        # New-style secret keys (sb_secret_...) are not JWTs and must only be sent in the apikey header.
+        # Legacy service_role keys are JWTs and are also sent as a Bearer token.
+        headers = {"apikey": service_key}
+        if not service_key.startswith("sb_"):
+            headers["Authorization"] = f"Bearer {service_key}"
+        self._http = httpx.Client(timeout=60.0, headers=headers, transport=transport)
 
     def put(self, key: str, data: bytes, content_type: str) -> None:
         resp = self._http.post(

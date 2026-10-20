@@ -4,7 +4,9 @@ import io
 import json
 import zipfile
 
+import httpx
 import pytest
+import respx
 from openpyxl import load_workbook
 from sqlalchemy import func, select
 
@@ -228,3 +230,19 @@ def test_delete_everything_requires_exact_confirmation(api, db, tmp_storage):
     assert db.scalar(select(func.count()).select_from(Project)) == 0
     assert list(tmp_storage.iterdir()) == []
     assert api.get("/api/v1/auth/me").status_code == 401
+
+
+@respx.mock
+def test_supabase_storage_sends_new_secret_keys_only_as_apikey():
+    from app.storage import SupabaseStorage
+
+    route = respx.post("https://proj.supabase.co/storage/v1/object/documents/" + "a" * 32).mock(
+        return_value=httpx.Response(200, json={})
+    )
+    SupabaseStorage("https://proj.supabase.co", "sb_secret_abc", "documents").put("a" * 32, PDF, "application/pdf")
+    sent = route.calls.last.request.headers
+    assert sent["apikey"] == "sb_secret_abc" and "authorization" not in sent
+
+    SupabaseStorage("https://proj.supabase.co", "eyJlegacy.jwt.key", "documents").put("a" * 32, PDF, "application/pdf")
+    sent = route.calls.last.request.headers
+    assert sent["authorization"] == "Bearer eyJlegacy.jwt.key"

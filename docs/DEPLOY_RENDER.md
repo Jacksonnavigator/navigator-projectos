@@ -49,9 +49,11 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
    * Name: `documents`.
    * **Public bucket: OFF.**
    * Create.
-4. **API keys:** left menu **Project Settings → API** (in newer dashboards: **Project Settings → Data API** for the URL and **API Keys** for the keys).
-   * 📋 **Project URL**, e.g. `https://abcdefghijkl.supabase.co` → this is `SUPABASE_URL`.
-   * 📋 **`service_role` key** (secret; click reveal) → this is `SUPABASE_SERVICE_KEY`. Never put it anywhere except Render.
+4. **Project URL and secret key:**
+   * 📋 **Project URL:** click **Connect** (or **Project Settings → Data API**) and copy the URL that looks like `https://abcdefghijkl.supabase.co`. This is `SUPABASE_URL`.
+   * 📋 **Secret key:** **Project Settings → API Keys**. You'll see a **Publishable key** (`sb_publishable_…`) and a **Secret key** (`sb_secret_…`). Copy the **Secret key** (click the eye/copy icon; create one with **+ New secret key** if the list is empty). This is `SUPABASE_SERVICE_KEY`.
+   * Don't use the publishable key: it can't reach a private bucket. The secret key gives full access to your project, so it only ever goes into Render's Environment page.
+   * Older projects may show *Legacy API keys* (`anon` / `service_role`) instead; the `service_role` key also works.
 
 ## Step 3. Render: create the Web Service
 
@@ -178,7 +180,7 @@ Also use **Settings → Download everything (JSON)** in the app now and then. Re
 
 - [ ] Step 0: GitHub id copied
 - [ ] Step 1: three secrets generated
-- [ ] Step 2: Supabase project, Session pooler URL, private `documents` bucket, URL and `service_role` key
+- [ ] Step 2: Supabase project, Session pooler URL, private `documents` bucket, Project URL and secret key (`sb_secret_…`)
 - [ ] Step 3: Render Web Service created and **Live**
 - [ ] Step 4: URL checked, `/api/v1/health/ready` says `ok`
 - [ ] Step 5: GitHub OAuth App created, client id and secret added on Render
