@@ -25,3 +25,4 @@ frontend/test-results/
 .vscode/
 .idea/
 .DS_Store
+*.tsbuildinfo

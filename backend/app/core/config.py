@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     # Render terminates TLS in front of the app and sets X-Forwarded-For.
     trust_proxy_headers: bool = True
 
-    # GitHub OAuth App (see docs/GITHUB_SETUP.md)
+    # GitHub OAuth App (see docs/DEPLOY_RENDER.md)
     github_client_id: str = ""
     github_client_secret: str = ""
     github_oauth_scopes: str = "read:user repo read:project"

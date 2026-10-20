@@ -166,3 +166,12 @@ def test_calendar(api):
     api.post("/api/v1/milestones", json={"project_id": p["id"], "title": "Demo", "due_date": soon})
     kinds = {i["kind"] for i in api.get("/api/v1/calendar").json()}
     assert kinds == {"task_due", "milestone"}
+
+
+def test_next_actions_list_each_task_once(api):
+    p = _project(api)
+    soon = (date.today() + timedelta(days=2)).isoformat()
+    _task(api, p["id"], title="Blocked and due", status="blocked", due_date=soon)
+    actions = api.get("/api/v1/dashboard").json()["next_actions"]
+    titles = [a["task"]["title"] for a in actions if "task" in a]
+    assert titles == ["Blocked and due"]

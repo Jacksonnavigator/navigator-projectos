@@ -148,14 +148,18 @@ def build_dashboard(db: Session) -> dict[str, Any]:
     # "What should I work on next" — a transparent rule, not a prediction:
     # 1) overdue tasks, 2) tasks due within 7 days, 3) blocked tasks, 4) next actions of P1/P2 projects.
     next_actions: list[dict[str, Any]] = []
-    for t in serialize_tasks(db, overdue[:5]):
-        next_actions.append({"reason": "overdue", "task": t})
+    listed: set[Any] = set()
+
+    def add_tasks(reason: str, candidates: list[Task], limit: int) -> None:
+        fresh = [t for t in candidates if t.id not in listed][:limit]
+        listed.update(t.id for t in fresh)
+        next_actions.extend({"reason": reason, "task": t} for t in serialize_tasks(db, fresh))
+
+    add_tasks("overdue", overdue, 5)
     week = today + timedelta(days=7)
     this_week = [x for x in due_soon if (d := x.due_date or x.gh_board_end) is not None and d <= week]
-    for t in serialize_tasks(db, this_week[:5]):
-        next_actions.append({"reason": "due_this_week", "task": t})
-    for t in serialize_tasks(db, [x for x in in_progress if x.status == "blocked"][:3]):
-        next_actions.append({"reason": "blocked", "task": t})
+    add_tasks("due_this_week", this_week, 5)
+    add_tasks("blocked", [x for x in in_progress if x.status == "blocked"], 3)
     for p in sorted(projects, key=lambda p: (PRIORITY_ORDER.get(p.priority or "", 9), p.priority_rank or 999)):
         if p.priority in ("P1", "P2") and p.next_action:
             next_actions.append(
