@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+backend/.storage/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
+
+# Secrets and local data
+.env
+.env.*
+!.env.example
+*.dump
+*.sql.gz
+*.age
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
