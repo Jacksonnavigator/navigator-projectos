@@ -24,9 +24,9 @@ Built on 2026-10-20 in a Linux cloud container (Python 3.13, Node 22, PostgreSQL
 
 ## Phase 1: Foundation
 
-**Implemented:** repository structure; FastAPI app with validated settings (production refuses unsafe config), JSON logs, request IDs, a consistent error format, security headers, CSRF double-submit, rate limiting; the full relational schema (Alembic `0001`); GitHub OAuth sign-in restricted to allowlisted user ids, sessions stored as HMAC hashes, GitHub token encrypted with Fernet; dev-only sign-in; React/Vite/Tailwind shell with sidebar, light/dark theme and cold-start banner, served by FastAPI from the same origin; `render.yaml`; CI.
+**Implemented:** repository structure; FastAPI app with validated settings (production refuses unsafe config), JSON logs, request IDs, a consistent error format, security headers, CSRF double-submit, rate limiting; the full relational schema (Alembic `0001`); GitHub OAuth sign-in restricted to allowlisted user ids, sessions stored as HMAC hashes, GitHub token encrypted with Fernet; dev-only sign-in; React/Vite/Tailwind shell with sidebar, light/dark theme and cold-start banner, served by FastAPI from the same origin; Render Web Service settings (in `docs/DEPLOY_RENDER.md`); CI.
 
-**Key files:** `backend/app/core/*`, `backend/app/models/*`, `backend/migrations/versions/0001_initial_schema.py`, `backend/app/api/v1/auth.py`, `frontend/src/lib/api.ts`, `frontend/src/components/{Layout,ui}.tsx`, `render.yaml`, `.github/workflows/ci.yml`.
+**Key files:** `backend/app/core/*`, `backend/app/models/*`, `backend/migrations/versions/0001_initial_schema.py`, `backend/app/api/v1/auth.py`, `frontend/src/lib/api.ts`, `frontend/src/components/{Layout,ui}.tsx`, `.github/workflows/ci.yml`.
 
 **Tests:** `tests/test_auth.py`: health/ready, headers, 401s, JSON 404s, CSRF, dev login/logout with audit, GitHub callback (allowed user gets a session and an encrypted token; others are rejected and nothing is stored), forged state, rate limit, production config validation.
 

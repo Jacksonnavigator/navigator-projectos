@@ -82,7 +82,7 @@ PLAYWRIGHT_CHROMIUM_PATH=/path/to/chromium npm run e2e   # needs a navigator_e2e
 
 ## Deploy
 
-Follow **[docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md)**. It takes about 30 minutes: create a Supabase project, a GitHub OAuth App, then a Render Blueprint from `render.yaml`.
+Follow **[docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md)**. It takes about 30–45 minutes: create a Supabase project, a Render **Web Service** (free), then a GitHub OAuth App.
 
 ## Documentation
 
