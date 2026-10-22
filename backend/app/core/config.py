@@ -58,6 +58,17 @@ class Settings(BaseSettings):
     # Directory with the built frontend (served by FastAPI in production).
     frontend_dist_dir: str = "../frontend/dist"
 
+    @field_validator("database_url")
+    @classmethod
+    def _database_url_is_postgres(cls, value: str) -> str:
+        value = value.strip()
+        if not value.startswith(("postgres://", "postgresql://", "postgresql+psycopg://")):
+            raise ValueError(
+                "DATABASE_URL must be a PostgreSQL connection string starting with postgresql:// "
+                "(Supabase: Connect -> Session pooler), not the https:// project URL"
+            )
+        return value
+
     @field_validator("allowed_github_user_ids")
     @classmethod
     def _ids_are_numeric(cls, value: str) -> str:

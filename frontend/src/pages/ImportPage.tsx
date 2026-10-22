@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import PlanLoader from "../components/PlanLoader";
 import { Badge, Button, Card, InlineError, PageHeader } from "../components/ui";
 import { api } from "../lib/api";
 import { titleCase } from "../lib/format";
@@ -49,6 +50,7 @@ export default function ImportPage() {
         title="Import project register"
         description="Upload your Excel register (.xlsx with a “Master Register” sheet and optional “Priority Plan” sheet). You'll see exactly what changes before anything is saved. Re-importing updates matching projects instead of duplicating them."
       />
+      <PlanLoader />
       <Card className="mb-6">
         <label htmlFor="register-file" className="mb-2 block text-sm font-medium">
           Register file

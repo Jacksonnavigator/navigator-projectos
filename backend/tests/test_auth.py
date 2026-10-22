@@ -121,3 +121,14 @@ def test_production_settings_reject_unsafe_config():
         Settings(environment="production", dev_login_enabled=True, public_base_url="http://x", encryption_key="")
     message = str(exc.value)
     assert "DEV_LOGIN_ENABLED" in message and "ENCRYPTION_KEY" in message and "https" in message
+
+
+def test_database_url_must_be_postgres():
+    import pytest
+    from pydantic import ValidationError
+
+    from app.core.config import Settings
+
+    with pytest.raises(ValidationError, match="not the https:// project URL"):
+        Settings(database_url="https://abc.supabase.co")
+    assert Settings(database_url=" postgresql://u:p@h:5432/db ").sqlalchemy_url.startswith("postgresql+psycopg://")

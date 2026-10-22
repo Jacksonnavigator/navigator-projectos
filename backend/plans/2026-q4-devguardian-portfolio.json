@@ -1,0 +1,187 @@
+{
+  "name": "8-week focus: DevGuardian + Portfolio (26 Oct – 18 Dec 2026)",
+  "description": "About 12 h/week: ~7 h DevGuardian, ~5 h Portfolio. Meza Order and Smart Agriculture move to P2.",
+  "projects": [
+    {
+      "match": "DevGuardian AI",
+      "update": {
+        "lifecycle": "active",
+        "priority": "P1",
+        "start_date": "2026-10-26",
+        "target_date": "2026-12-17",
+        "next_action": "Put the code in a private GitHub repo, then run the full reliability validation suite and record the results."
+      },
+      "milestones": [
+        {
+          "title": "Baseline verified",
+          "due_date": "2026-11-06",
+          "completion_criteria": "Code is on GitHub and the current pass/fail results are recorded as evidence.",
+          "tasks": [
+            {
+              "key": "dg-repo",
+              "title": "Put DevGuardian code in a private GitHub repo",
+              "start_date": "2026-10-26",
+              "due_date": "2026-10-28",
+              "priority": "high",
+              "acceptance_criteria": "Code pushed; repo linked to DevGuardian on the GitHub page with Sync ticked."
+            },
+            {
+              "key": "dg-suite",
+              "title": "Run the full reliability validation suite",
+              "start_date": "2026-10-26",
+              "due_date": "2026-10-30",
+              "priority": "high",
+              "acceptance_criteria": "Pass and fail counts saved under Health & tests → Record evidence as Measured."
+            },
+            {
+              "key": "dg-triage",
+              "title": "Write a prioritized list of failures",
+              "start_date": "2026-11-02",
+              "due_date": "2026-11-04",
+              "acceptance_criteria": "Top 3 failures each have a severity and a likely cause.",
+              "depends_on": ["dg-suite"]
+            }
+          ]
+        },
+        {
+          "title": "Top failures fixed",
+          "due_date": "2026-11-27",
+          "completion_criteria": "The 3 highest-severity failures are fixed and the suite pass count is higher than the baseline.",
+          "tasks": [
+            {
+              "key": "dg-fix",
+              "title": "Fix the 3 highest-severity failures",
+              "start_date": "2026-11-09",
+              "due_date": "2026-11-25",
+              "priority": "high",
+              "acceptance_criteria": "Each fix has a test that failed before and passes after.",
+              "depends_on": ["dg-triage"]
+            },
+            {
+              "key": "dg-rerun",
+              "title": "Re-run the suite and record results",
+              "start_date": "2026-11-26",
+              "due_date": "2026-11-27",
+              "acceptance_criteria": "New pass count recorded as evidence; higher than the baseline.",
+              "depends_on": ["dg-fix"]
+            }
+          ]
+        },
+        {
+          "title": "Reliability v1 demo",
+          "due_date": "2026-12-17",
+          "completion_criteria": "The full deployment cycle is demonstrated and recorded on video.",
+          "tasks": [
+            {
+              "key": "dg-cycle",
+              "title": "Verify backup → deploy → health check → rollback end to end",
+              "start_date": "2026-11-30",
+              "due_date": "2026-12-09",
+              "priority": "high",
+              "acceptance_criteria": "The full cycle runs on a sample package; each step recorded as evidence.",
+              "depends_on": ["dg-rerun"]
+            },
+            {
+              "key": "dg-demo",
+              "title": "Record a 3-minute demo video and README screenshots",
+              "start_date": "2026-12-10",
+              "due_date": "2026-12-15",
+              "acceptance_criteria": "Video link added to the DevGuardian project links.",
+              "depends_on": ["dg-cycle"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "match": "Jackson Wambali Developer Portfolio",
+      "update": {
+        "lifecycle": "active",
+        "priority": "P1",
+        "start_date": "2026-10-26",
+        "target_date": "2026-12-18",
+        "next_action": "Update the CV with the diploma, then find the current site and repo."
+      },
+      "milestones": [
+        {
+          "title": "Content ready",
+          "due_date": "2026-11-20",
+          "completion_criteria": "Updated CV and two verified case studies are written.",
+          "tasks": [
+            {
+              "key": "pf-cv",
+              "title": "Update CV with diploma (received Oct 2026)",
+              "start_date": "2026-10-27",
+              "due_date": "2026-10-30",
+              "priority": "high",
+              "acceptance_criteria": "CV PDF uploaded in Documents."
+            },
+            {
+              "key": "pf-stack",
+              "title": "Find the current site and repo, decide stack and hosting",
+              "start_date": "2026-11-02",
+              "due_date": "2026-11-06",
+              "acceptance_criteria": "Repo linked to the Portfolio project in ProjectOS."
+            },
+            {
+              "key": "pf-water",
+              "title": "Case study: Smart Water Monitoring",
+              "start_date": "2026-11-09",
+              "due_date": "2026-11-13",
+              "acceptance_criteria": "Uses only verified results (photos, real readings); no untested claims.",
+              "depends_on": ["pf-stack"]
+            },
+            {
+              "key": "pf-bird",
+              "title": "Case study: Bird Species Identifier",
+              "start_date": "2026-11-16",
+              "due_date": "2026-11-20",
+              "acceptance_criteria": "Links the Hugging Face model and states its known limitations.",
+              "depends_on": ["pf-stack"]
+            }
+          ]
+        },
+        {
+          "title": "Portfolio live",
+          "due_date": "2026-12-18",
+          "completion_criteria": "Site published with three case studies and working links.",
+          "tasks": [
+            {
+              "key": "pf-theme",
+              "title": "Apply the orange/yellow theme and check mobile layout",
+              "start_date": "2026-11-23",
+              "due_date": "2026-12-04",
+              "acceptance_criteria": "Looks right at phone width; no horizontal scrolling.",
+              "depends_on": ["pf-stack"]
+            },
+            {
+              "key": "pf-devguardian",
+              "title": "Case study: DevGuardian",
+              "start_date": "2026-12-14",
+              "due_date": "2026-12-17",
+              "acceptance_criteria": "Includes the DevGuardian demo video.",
+              "depends_on": ["dg-demo"]
+            },
+            {
+              "key": "pf-publish",
+              "title": "Check all links and contact details, then publish",
+              "start_date": "2026-12-16",
+              "due_date": "2026-12-18",
+              "priority": "high",
+              "acceptance_criteria": "Every link opens; site is live.",
+              "depends_on": ["pf-water", "pf-bird", "pf-devguardian", "pf-theme"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "match": "Meza Order",
+      "update": { "priority": "P2" }
+    },
+    {
+      "match": "Smart Agriculture and Automated Irrigation",
+      "update": { "priority": "P2" }
+    }
+  ]
+}
