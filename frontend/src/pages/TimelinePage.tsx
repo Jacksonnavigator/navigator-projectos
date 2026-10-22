@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { ProjectSelect } from "../components/domain";
 import TaskModal from "../components/TaskModal";
 import { LifecycleBadge, PriorityBadge } from "../components/domain";
-import { Button, EmptyState, ErrorState, InlineError, Input, LoadingBlock, Modal, PageHeader, Select, Toolbar, cx } from "../components/ui";
+import { Button, EmptyState, ErrorState, InlineError, Input, LoadingBlock, Modal, PageHeader, Select, Toolbar, cx, toast } from "../components/ui";
 import { get, patch } from "../lib/api";
 import { addDays, DATE_SOURCE_LABEL, daysBetween, formatDate, STATUS_LABEL, todayIso } from "../lib/format";
 import type { TaskStatus, TimelineData, TimelineItem } from "../lib/types";
@@ -302,7 +302,7 @@ function TaskRow({ item, top, width, x, start, days, onOpen }: {
           title={tooltip}
           aria-label={tooltip.replace(/\n/g, ". ")}
           className={cx(
-            "absolute top-1/2 h-5 -translate-y-1/2 overflow-hidden rounded px-1.5 text-left text-[11px] font-medium leading-5",
+            "absolute top-1/2 h-5 -translate-y-1/2 overflow-hidden rounded px-1.5 text-left text-xs font-medium leading-5",
             BAR_COLOR[item.status],
             item.overdue && "ring-2 ring-bad",
             !item.end && "border-r-2 border-dashed border-white/70 [mask-image:linear-gradient(to_right,black_70%,transparent)]",
@@ -373,7 +373,7 @@ function UndatedProjects({ projects }: { projects: TimelineData["undated_project
       <p className="mb-3 text-xs text-muted">These projects have no start or target date and no dated tasks, so they can't be drawn. Give them dates to place them on the timeline.</p>
       <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {projects.map((p) => (
-          <li key={p.id} className="flex items-center justify-between gap-2 rounded-md border border-line px-3 py-2">
+          <li key={p.id} className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-line px-3 py-2">
             <span className="min-w-0">
               <Link to={`/projects/${p.id}`} className="block truncate text-sm font-medium hover:underline">
                 {p.name}
@@ -402,12 +402,16 @@ function SetDates({ project, onClose }: { project: { id: string; name: string } 
     mutationFn: () => patch(`/projects/${project!.id}`, { start_date: startDate || null, target_date: target || null }),
     onSuccess: () => {
       for (const key of ["timeline", "projects", "project", "dashboard"]) void qc.invalidateQueries({ queryKey: [key] });
+      toast(`Dates saved for ${project!.name}`);
       setStartDate("");
       setTarget("");
+      setTried(false);
       onClose();
     },
   });
   const invalid = Boolean(startDate && target && target < startDate);
+  const [tried, setTried] = useState(false);
+  const empty = !startDate && !target;
   return (
     <Modal
       open={Boolean(project)}
@@ -416,7 +420,14 @@ function SetDates({ project, onClose }: { project: { id: string; name: string } 
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" onClick={() => save.mutate()} busy={save.isPending} disabled={(!startDate && !target) || invalid}>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setTried(true);
+              if (!invalid && !empty) save.mutate();
+            }}
+            busy={save.isPending}
+          >
             Save dates
           </Button>
         </>
@@ -437,6 +448,7 @@ function SetDates({ project, onClose }: { project: { id: string; name: string } 
         </div>
       </div>
       {invalid && <p className="mt-2 text-sm text-bad">The target date is before the start date.</p>}
+      {tried && empty && <p className="mt-2 text-sm text-bad">Enter a start date, a target date, or both.</p>}
       <InlineError error={save.error} />
     </Modal>
   );

@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { BarList, ColumnChart, ProgressRing } from "../components/charts";
 import { LifecycleBadge, PriorityBadge, ProgressBar, ProjectSelect, SourceBadge } from "../components/domain";
 import TaskModal from "../components/TaskModal";
-import { Badge, Button, Card, EmptyState, ErrorState, InlineError, Input, LoadingBlock, cx } from "../components/ui";
+import { Badge, Button, Card, EmptyState, ErrorState, InlineError, Input, LoadingBlock, cx, toast, useValidation } from "../components/ui";
 import { get, patch, post } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { formatDate, LIFECYCLES, relativeTime, titleCase, todayIso } from "../lib/format";
@@ -49,6 +49,7 @@ function useTaskActions() {
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(["dashboard"], ctx.previous);
+      toast("That change couldn't be saved. Try again.", { tone: "bad" });
     },
     onSettled: () => {
       for (const key of ["dashboard", "tasks", "timeline", "calendar", "projects", "project"]) void qc.invalidateQueries({ queryKey: [key] });
@@ -65,15 +66,17 @@ function canToggle(t: Task) {
 function TaskCheck({ task, onToggle, busy }: { task: Task; onToggle: () => void; busy?: boolean }) {
   const allowed = canToggle(task);
   return (
-    <input
-      type="checkbox"
-      className="size-4 shrink-0 cursor-pointer accent-[var(--color-accent)] disabled:cursor-not-allowed"
-      checked={task.status === "done"}
-      disabled={!allowed || busy}
-      onChange={onToggle}
-      aria-label={task.status === "done" ? `Mark “${task.title}” not done` : `Mark “${task.title}” done`}
-      title={allowed ? undefined : "Close or reopen this on GitHub; the next sync updates it"}
-    />
+    <label className="-m-1 grid shrink-0 cursor-pointer place-items-center rounded p-1 hover:bg-sunken has-[:disabled]:cursor-not-allowed pointer-coarse:p-2.5">
+      <input
+        type="checkbox"
+        className="size-4 cursor-pointer accent-[var(--color-accent)] disabled:cursor-not-allowed"
+        checked={task.status === "done"}
+        disabled={!allowed || busy}
+        onChange={onToggle}
+        aria-label={task.status === "done" ? `Mark “${task.title}” not done` : `Mark “${task.title}” done`}
+        title={allowed ? undefined : "Close or reopen this on GitHub; the next sync updates it"}
+      />
+    </label>
   );
 }
 
@@ -119,8 +122,20 @@ export default function DashboardPage() {
   if (dash.isPending) return <LoadingBlock rows={6} />;
   if (dash.error) return <ErrorState error={dash.error} onRetry={() => void dash.refetch()} />;
   const d = dash.data;
-  const toggle = (t: Task) => actions.mutate({ id: t.id, status: t.status === "done" ? "todo" : "done" });
-  const start = (t: Task) => actions.mutate({ id: t.id, status: "in_progress" });
+  const toggle = (t: Task) => {
+    const previous = t.status;
+    const next = previous === "done" ? "todo" : "done";
+    actions.mutate(
+      { id: t.id, status: next },
+      {
+        onSuccess: () =>
+          toast(next === "done" ? `Done: “${t.title}”` : `Reopened “${t.title}”`, {
+            action: { label: "Undo", onClick: () => actions.mutate({ id: t.id, status: previous }) },
+          }),
+      },
+    );
+  };
+  const start = (t: Task) => actions.mutate({ id: t.id, status: "in_progress" }, { onSuccess: () => toast(`Started “${t.title}”`) });
 
   if (d.counts.projects === 0 && d.completed_projects.length === 0) {
     return (
@@ -166,7 +181,7 @@ export default function DashboardPage() {
       {adding && <QuickAdd onDone={() => setAdding(false)} />}
       <InlineError error={actions.error} />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-6">
         <Stat icon="◎" label="Active projects" value={active} to="/projects?lifecycle=active" tone="accent" />
         <Stat icon="✓" label="Completed" value={d.completed_projects.length} to="/projects?lifecycle=completed" tone="ok" />
         <Stat icon="☰" label="Open tasks" value={d.counts.open_tasks} to="/tasks" />
@@ -202,13 +217,13 @@ export default function DashboardPage() {
             </ul>
           )}
         </Card>
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card title="Tasks completed per week">
             <ColumnChart
               label="Top-level tasks completed per week, last 8 weeks"
               data={d.throughput.map((w) => ({
                 key: w.week_start,
-                label: formatDate(w.week_start, { year: undefined, month: "short", day: "numeric" }),
+                label: formatDate(w.week_start, { year: undefined, month: "numeric", day: "numeric" }),
                 value: w.done,
                 tooltip: `Week of ${formatDate(w.week_start)}: ${w.done} task${w.done === 1 ? "" : "s"} done`,
               }))}
@@ -222,7 +237,7 @@ export default function DashboardPage() {
         <Card title="Project health" className="xl:col-span-2">
           <HealthTable health={d.health} />
         </Card>
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {d.completed_projects.length > 0 && (
             <Card title={`Completed (${d.completed_projects.length})`}>
               <ul className="space-y-2">
@@ -288,13 +303,13 @@ function Hero({ name, sub, actions }: { name: string; sub?: string; actions?: Re
 function Stat({ icon, label, value, to, tone }: { icon: string; label: string; value: number; to: string; tone?: "accent" | "ok" | "bad" }) {
   const toneClass = tone === "accent" ? "text-accent bg-accent-soft" : tone === "ok" ? "text-ok bg-ok-soft" : tone === "bad" ? "text-bad bg-bad-soft" : "text-muted bg-sunken";
   return (
-    <Link to={to} className="group flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 transition-shadow hover:shadow-md">
+    <Link to={to} className="group flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 hover:shadow-md">
       <span className={cx("grid size-9 shrink-0 place-items-center rounded-md text-base", toneClass)} aria-hidden="true">
         {icon}
       </span>
       <span className="min-w-0">
         <span className="block text-2xl leading-tight font-semibold tabular-nums">{value}</span>
-        <span className="block truncate text-xs text-muted group-hover:text-ink">{label}</span>
+        <span className="block text-xs leading-tight text-muted group-hover:text-ink">{label}</span>
       </span>
     </Link>
   );
@@ -310,7 +325,7 @@ function FocusProject({ card: f, onOpen, onToggle, onStart, busy }: {
   const ms = f.next_milestone;
   const t = f.next_task;
   return (
-    <article className="flex min-w-0 flex-col gap-4 rounded-xl border border-line bg-surface p-5 transition-shadow hover:shadow-md">
+    <article className="flex min-w-0 flex-col gap-4 rounded-xl border border-line bg-surface p-5 hover:shadow-md">
       <header className="flex items-start gap-4">
         <ProgressRing value={f.progress} label={`${f.name} tasks done`} />
         <div className="min-w-0 flex-1">
@@ -401,7 +416,7 @@ function WeekStrip({ days, onOpen, onToggle, busy }: {
               <p className={cx("mb-2 flex items-baseline gap-1 text-xs", isToday ? "font-semibold text-accent" : "text-muted")}>
                 {new Intl.DateTimeFormat(undefined, { weekday: "short", timeZone: "UTC" }).format(date)}
                 <span className="text-sm tabular-nums">{date.getUTCDate()}</span>
-                {isToday && <span className="ml-auto text-[10px] uppercase">Today</span>}
+                {isToday && <span className="ml-auto text-xs">Today</span>}
               </p>
               <ul className="space-y-1.5">
                 {day.items.length === 0 && <li className="text-xs text-faint">—</li>}
@@ -508,7 +523,7 @@ function HealthTable({ health }: { health: Dashboard["health"] }) {
           </thead>
           <tbody>
             {rows.map((h) => (
-              <tr key={h.id} className="border-b border-line transition-colors last:border-0 hover:bg-sunken/60">
+              <tr key={h.id} className="border-b border-line last:border-0 hover:bg-sunken/60">
                 <td className="px-4 py-2">
                   <Link to={`/projects/${h.id}`} className="font-medium hover:underline">
                     {h.name}
@@ -554,28 +569,60 @@ function QuickAdd({ onDone }: { onDone: () => void }) {
     mutationFn: () => post("/tasks", { project_id: projectId, title: title.trim(), due_date: due || null }),
     onSuccess: () => {
       for (const key of ["dashboard", "tasks", "timeline", "calendar"]) void qc.invalidateQueries({ queryKey: [key] });
+      toast(`Task “${title.trim()}” added`);
       setTitle("");
       setDue("");
       onDone();
     },
   });
+  const v = useValidation({
+    title: title.trim() ? undefined : "Say what needs doing.",
+    project: projectId ? undefined : "Choose a project.",
+  });
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (title.trim() && projectId) add.mutate();
+    if (v.check()) add.mutate();
   };
   return (
-    <form onSubmit={submit} className="flex flex-wrap items-end gap-3 rounded-lg border border-line bg-surface p-4">
+    <form onSubmit={submit} noValidate className="flex flex-wrap items-start gap-3 rounded-lg border border-line bg-surface p-4">
       <div className="min-w-56 flex-1">
         <label htmlFor="qa-title" className="mb-1 block text-xs font-medium text-muted">
           Task
         </label>
-        <Input id="qa-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What needs doing?" autoFocus />
+        <Input
+          id="qa-title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={() => v.blur("title")}
+          placeholder="e.g. Order RS485 module"
+          aria-invalid={v.error("title") ? true : undefined}
+          aria-describedby={v.error("title") ? "qa-title-error" : undefined}
+          autoFocus
+        />
+        {v.error("title") && (
+          <p id="qa-title-error" className="mt-1 text-xs text-bad">
+            {v.error("title")}
+          </p>
+        )}
       </div>
       <div className="w-60">
         <label htmlFor="qa-project" className="mb-1 block text-xs font-medium text-muted">
           Project
         </label>
-        <ProjectSelect id="qa-project" value={projectId} onChange={setProjectId} emptyLabel="Choose a project" />
+        <ProjectSelect
+          id="qa-project"
+          value={projectId}
+          onChange={setProjectId}
+          onBlur={() => v.blur("project")}
+          emptyLabel="Choose a project"
+          aria-invalid={v.error("project") ? true : undefined}
+          aria-describedby={v.error("project") ? "qa-project-error" : undefined}
+        />
+        {v.error("project") && (
+          <p id="qa-project-error" className="mt-1 text-xs text-bad">
+            {v.error("project")}
+          </p>
+        )}
       </div>
       <div>
         <label htmlFor="qa-due" className="mb-1 block text-xs font-medium text-muted">
@@ -583,7 +630,7 @@ function QuickAdd({ onDone }: { onDone: () => void }) {
         </label>
         <Input id="qa-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
       </div>
-      <Button type="submit" variant="primary" busy={add.isPending} disabled={!title.trim() || !projectId}>
+      <Button type="submit" variant="primary" busy={add.isPending}>
         Add task
       </Button>
       <Button onClick={onDone}>Cancel</Button>

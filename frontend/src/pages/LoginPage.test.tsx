@@ -26,6 +26,6 @@ describe("LoginPage", () => {
     expect(await screen.findByRole("link", { name: "Sign in with GitHub" })).toHaveAttribute("href", "/api/v1/auth/github/login");
     expect(screen.getByRole("alert")).toHaveTextContent("That GitHub account is not allowed");
     expect(screen.getByRole("alert")).toHaveTextContent("12345");
-    expect(screen.queryByRole("button", { name: "Development sign-in" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sign in for development" })).toBeNull();
   });
 });

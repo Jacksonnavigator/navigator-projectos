@@ -56,10 +56,9 @@ export default function ProjectDetailPage() {
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <LifecycleBadge value={p.lifecycle} />
             <PriorityBadge value={p.priority} label={p.priority_label} />
-            {p.category && <Badge>{p.category}</Badge>}
-            {p.tags.map((t) => (
-              <Badge key={t}>#{t}</Badge>
-            ))}
+            {p.category && <span className="text-sm text-muted">{p.category}</span>}
+            {p.tags.length > 0 && <span className="text-sm text-muted">{p.tags.map((t) => `#${t}`).join(" ")}</span>}
+            {p.completed_on && <span className="text-sm text-ok">Completed {formatDate(p.completed_on)}</span>}
             {p.archived_at && <Badge tone="warn">Archived {formatDate(p.archived_at)}</Badge>}
           </div>
         </div>

@@ -1,9 +1,9 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { LifecycleBadge, PriorityBadge } from "../components/domain";
+import { LifecycleBadge, PriorityBadge, ProgressBar } from "../components/domain";
 import ProjectForm from "../components/ProjectForm";
-import { Badge, Button, EmptyState, ErrorState, Input, LoadingBlock, PageHeader, Select, Toolbar } from "../components/ui";
+import { Badge, Button, EmptyState, ErrorState, Input, LoadingBlock, PageHeader, Select, Toolbar, cx } from "../components/ui";
 import { get } from "../lib/api";
 import { formatDate, LIFECYCLES, relativeTime, titleCase } from "../lib/format";
 import type { Page, ProjectSummary } from "../lib/types";
@@ -18,6 +18,21 @@ export default function ProjectsPage() {
   const category = params.get("category") ?? "";
   const sort = params.get("sort") ?? "priority";
   const archived = params.get("archived") === "1";
+  const [view, setView] = useState<"list" | "cards">(() => {
+    try {
+      return localStorage.getItem("nav-projects-view") === "cards" ? "cards" : "list";
+    } catch {
+      return "list";
+    }
+  });
+  const chooseView = (v: "list" | "cards") => {
+    setView(v);
+    try {
+      localStorage.setItem("nav-projects-view", v);
+    } catch {
+      // storage blocked: keep the choice for this visit only
+    }
+  };
 
   useEffect(() => {
     const t = setTimeout(() => update("q", search), 250);
@@ -68,7 +83,7 @@ export default function ProjectsPage() {
       <Toolbar>
         <div className="w-full sm:w-64">
           <label htmlFor="project-search" className="mb-1 block text-xs font-medium text-muted">
-            Search
+            Search projects
           </label>
           <Input id="project-search" type="search" placeholder="Name, purpose, tech…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
@@ -125,6 +140,22 @@ export default function ProjectsPage() {
           <input type="checkbox" checked={archived} onChange={(e) => update("archived", e.target.checked ? "1" : "")} className="size-4" />
           Show archived
         </label>
+        <div role="group" aria-label="Layout" className="ml-auto flex rounded-md border border-line">
+          {(["list", "cards"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={view === v}
+              onClick={() => chooseView(v)}
+              className={cx(
+                "h-10 px-3 text-sm first:rounded-l-md last:rounded-r-md pointer-coarse:h-11",
+                view === v ? "bg-accent-soft font-medium text-accent" : "text-muted hover:bg-sunken hover:text-ink",
+              )}
+            >
+              {v === "list" ? "List" : "Cards"}
+            </button>
+          ))}
+        </div>
       </Toolbar>
 
       {list.isPending ? (
@@ -150,11 +181,19 @@ export default function ProjectsPage() {
           <p className="mb-2 text-xs text-muted" aria-live="polite">
             {list.data.total} project{list.data.total === 1 ? "" : "s"}
           </p>
-          <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
-            {roots.map((p) => (
-              <ProjectRow key={p.id} project={p} childProjects={children.get(p.id) ?? []} />
-            ))}
-          </ul>
+          {view === "list" ? (
+            <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
+              {roots.map((p) => (
+                <ProjectRow key={p.id} project={p} childProjects={children.get(p.id) ?? []} />
+              ))}
+            </ul>
+          ) : (
+            <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {items.map((p) => (
+                <ProjectCard key={p.id} project={p} />
+              ))}
+            </ul>
+          )}
         </>
       )}
       <ProjectForm open={creating} onClose={() => setCreating(false)} />
@@ -197,6 +236,39 @@ function ProjectRow({ project: p, childProjects, nested }: { project: ProjectSum
           ))}
         </ul>
       )}
+    </li>
+  );
+}
+
+function ProjectCard({ project: p }: { project: ProjectSummary }) {
+  const total = p.open_tasks + p.done_tasks;
+  return (
+    <li className="min-w-0">
+      <Link
+        to={`/projects/${p.id}`}
+        className="flex h-full flex-col gap-3 rounded-xl border border-line bg-surface p-4 hover:border-accent/60 hover:shadow-sm"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate font-medium">{p.name}</p>
+            <p className="truncate text-xs text-muted">
+              {p.register_id !== null ? `#${p.register_id} · ` : ""}
+              {p.category ?? "No category"}
+            </p>
+          </div>
+          <PriorityBadge value={p.priority} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <LifecycleBadge value={p.lifecycle} />
+          {p.overdue_tasks > 0 && <Badge tone="bad">{p.overdue_tasks} overdue</Badge>}
+          {p.repo_count > 0 && <span className="text-xs text-muted">GitHub linked</span>}
+        </div>
+        <p className="line-clamp-2 min-h-10 text-sm text-ink/80">{p.next_action ? `Next: ${p.next_action}` : "No next action yet."}</p>
+        <div className="mt-auto flex items-center justify-between gap-2 border-t border-line pt-3 text-xs text-muted">
+          <ProgressBar value={total ? p.done_tasks / total : null} label={`${p.done_tasks} of ${total} tasks done`} />
+          <span>{p.target_date ? `Target ${formatDate(p.target_date, { year: undefined })}` : p.completed_on ? `Done ${formatDate(p.completed_on)}` : ""}</span>
+        </div>
+      </Link>
     </li>
   );
 }

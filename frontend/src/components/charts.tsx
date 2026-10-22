@@ -19,7 +19,7 @@ export function ColumnChart({
   return (
     <figure className="relative">
       <div className="relative flex" style={{ height }}>
-        <div className="flex w-6 shrink-0 flex-col-reverse justify-between pb-[22px] text-right text-[10px] text-faint" aria-hidden="true">
+        <div className="flex w-7 shrink-0 flex-col-reverse justify-between pb-[22px] text-right text-xs text-faint" aria-hidden="true">
           {ticks.map((t) => (
             <span key={t} className="leading-none">
               {t}
@@ -49,7 +49,7 @@ export function ColumnChart({
               </button>
             ))}
           </div>
-          <div className="absolute inset-x-0 bottom-0 flex gap-[2px] text-[10px] text-faint" aria-hidden="true">
+          <div className="absolute inset-x-0 bottom-0 flex gap-[2px] text-xs text-faint" aria-hidden="true">
             {data.map((d) => (
               <span key={d.key} className="flex-1 truncate text-center">
                 {d.label}
@@ -67,8 +67,9 @@ export function ColumnChart({
           )}
         </div>
       </div>
-      <table className="sr-only">
-        <caption>{label}</caption>
+      <div className="sr-only">
+        <table>
+          <caption>{label}</caption>
         <tbody>
           {data.map((d) => (
             <tr key={d.key}>
@@ -76,8 +77,9 @@ export function ColumnChart({
               <td>{d.value}</td>
             </tr>
           ))}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     </figure>
   );
 }

@@ -5,7 +5,7 @@ import { formatDate } from "../lib/format";
 import type { Milestone } from "../lib/types";
 import { ProgressBar } from "./domain";
 import { useInvalidateWork } from "./TaskModal";
-import { Badge, Button, ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Input, LoadingBlock, Modal, Textarea } from "./ui";
+import { Badge, Button, ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Input, LoadingBlock, Modal, Textarea, toast, useValidation } from "./ui";
 
 export default function MilestonesPanel({ projectId }: { projectId: string }) {
   const invalidate = useInvalidateWork();
@@ -118,12 +118,14 @@ function MilestoneForm({ projectId, milestone, open, onClose }: { projectId: str
     },
     onSuccess: () => {
       invalidate();
+      toast(milestone ? "Milestone updated" : "Milestone created");
       onClose();
     },
   });
+  const v = useValidation({ title: title.trim() ? undefined : "Give the milestone a title." });
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (title.trim()) save.mutate();
+    if (v.check()) save.mutate();
   };
   return (
     <Modal
@@ -133,15 +135,15 @@ function MilestoneForm({ projectId, milestone, open, onClose }: { projectId: str
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" form="ms-form" busy={save.isPending} disabled={!title.trim()}>
+          <Button variant="primary" type="submit" form="ms-form" busy={save.isPending}>
             {milestone ? "Save" : "Create milestone"}
           </Button>
         </>
       }
     >
       <form id="ms-form" onSubmit={submit} className="space-y-4">
-        <Field label="Title" error={!title.trim() && save.isError ? "Required" : undefined}>
-          {(p) => <Input {...p} value={title} onChange={(e) => setTitle(e.target.value)} disabled={gh} />}
+        <Field label="Title" error={v.error("title")}>
+          {(p) => <Input {...p} value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => v.blur("title")} disabled={gh} />}
         </Field>
         <Field label={gh ? "Local due date (overrides GitHub's)" : "Due date"}>
           {(p) => <Input {...p} type="date" value={due} onChange={(e) => setDue(e.target.value)} />}

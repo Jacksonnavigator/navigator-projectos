@@ -4,7 +4,7 @@ import { del, get, post } from "../lib/api";
 import { formatDateTime, titleCase } from "../lib/format";
 import type { Evidence, Page } from "../lib/types";
 import { ProjectSelect } from "./domain";
-import { Badge, Button, EmptyState, ErrorState, Field, InlineError, Input, LoadingBlock, Modal, Select, Textarea } from "./ui";
+import { Badge, Button, EmptyState, ErrorState, Field, InlineError, Input, LoadingBlock, Modal, Select, Textarea, toast, useValidation } from "./ui";
 
 const KINDS = ["test_run", "build", "deployment_check", "hardware_measurement", "calibration", "bug", "incident", "release", "note"];
 const RESULT_TONE = { pass: "ok", fail: "bad", partial: "warn", info: "neutral" } as const;
@@ -109,9 +109,17 @@ function EvidenceForm({ open, onClose, projectId }: { open: boolean; onClose: ()
   const qc = useQueryClient();
   const [form, setForm] = useState<Record<string, string>>({});
   const [lastOpen, setLastOpen] = useState(false);
+  const v = useValidation({
+    project: form.project_id ? undefined : "Choose the project this evidence is for.",
+    title: form.title?.trim() ? undefined : "Say what was checked, e.g. “Depth sensor at 1.00 m”.",
+    when: form.observed_at ? undefined : "Enter when it was checked.",
+  });
   if (open !== lastOpen) {
     setLastOpen(open);
-    if (open) setForm({ project_id: projectId ?? "", kind: "test_run", result: "pass", origin: "measured", observed_at: nowLocal() });
+    if (open) {
+      setForm({ project_id: projectId ?? "", kind: "test_run", result: "pass", origin: "measured", observed_at: nowLocal() });
+      v.reset();
+    }
   }
   const set = (k: string) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const save = useMutation({
@@ -133,13 +141,13 @@ function EvidenceForm({ open, onClose, projectId }: { open: boolean; onClose: ()
       void qc.invalidateQueries({ queryKey: ["evidence"] });
       void qc.invalidateQueries({ queryKey: ["health-overview"] });
       void qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast("Evidence recorded");
       onClose();
     },
   });
-  const valid = form.project_id && form.title?.trim() && form.observed_at;
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (valid) save.mutate();
+    if (v.check()) save.mutate();
   };
   return (
     <Modal
@@ -149,7 +157,7 @@ function EvidenceForm({ open, onClose, projectId }: { open: boolean; onClose: ()
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" form="ev-form" busy={save.isPending} disabled={!valid}>
+          <Button variant="primary" type="submit" form="ev-form" busy={save.isPending}>
             Save record
           </Button>
         </>
@@ -157,11 +165,11 @@ function EvidenceForm({ open, onClose, projectId }: { open: boolean; onClose: ()
     >
       <form id="ev-form" onSubmit={submit} className="space-y-4">
         {!projectId && (
-          <Field label="Project">
-            {(p) => <ProjectSelect {...p} value={form.project_id} onChange={(id) => setForm((f) => ({ ...f, project_id: id ?? "" }))} emptyLabel="Choose a project" />}
+          <Field label="Project" error={v.error("project")}>
+            {(p) => <ProjectSelect {...p} value={form.project_id} onChange={(id) => setForm((f) => ({ ...f, project_id: id ?? "" }))} onBlur={() => v.blur("project")} emptyLabel="Choose a project" />}
           </Field>
         )}
-        <Field label="What was checked">{(p) => <Input {...p} value={form.title ?? ""} onChange={set("title")} placeholder="e.g. Depth sensor at 1.00 m" />}</Field>
+        <Field label="What was checked" error={v.error("title")}>{(p) => <Input {...p} value={form.title ?? ""} onChange={set("title")} onBlur={() => v.blur("title")} placeholder="e.g. Depth sensor at 1.00 m" />}</Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Kind">
             {(p) => (
@@ -192,7 +200,7 @@ function EvidenceForm({ open, onClose, projectId }: { open: boolean; onClose: ()
               </Select>
             )}
           </Field>
-          <Field label="When">{(p) => <Input {...p} type="datetime-local" value={form.observed_at ?? ""} onChange={set("observed_at")} />}</Field>
+          <Field label="When" error={v.error("when")}>{(p) => <Input {...p} type="datetime-local" value={form.observed_at ?? ""} onChange={set("observed_at")} onBlur={() => v.blur("when")} />}</Field>
           <Field label="Measured value">{(p) => <Input {...p} inputMode="decimal" value={form.measured_value ?? ""} onChange={set("measured_value")} />}</Field>
           <Field label="Reference value">{(p) => <Input {...p} inputMode="decimal" value={form.reference_value ?? ""} onChange={set("reference_value")} />}</Field>
           <Field label="Unit">{(p) => <Input {...p} value={form.unit ?? ""} onChange={set("unit")} placeholder="m, V, %, mA…" />}</Field>

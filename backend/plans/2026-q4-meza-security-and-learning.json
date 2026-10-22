@@ -1,0 +1,67 @@
+{
+  "name": "Meza Order security cleanup + close the learning track (Oct – Nov 2026)",
+  "description": "Five short security/QA follow-ups so Meza Order is truly finished (about 4 h total, fitted around the focus plan). Marks the Hands-On AI/ML learning track as Completed.",
+  "projects": [
+    {
+      "match": "17",
+      "label": "Meza Order",
+      "update": {
+        "lifecycle": "completed",
+        "next_action": "Finish the security cleanup milestone, then leave it alone."
+      },
+      "milestones": [
+        {
+          "title": "Security cleanup",
+          "due_date": "2026-11-06",
+          "completion_criteria": "All five follow-ups from the Oct 12 review are done and the live app has been re-tested.",
+          "tasks": [
+            {
+              "key": "meza-demo-pw",
+              "title": "Rotate the demo password",
+              "start_date": "2026-10-26",
+              "due_date": "2026-10-26",
+              "priority": "urgent",
+              "acceptance_criteria": "Old demo password no longer works; new one stored only in a password manager."
+            },
+            {
+              "key": "meza-session",
+              "title": "Block expired sessions from waiter and bill requests",
+              "start_date": "2026-10-27",
+              "due_date": "2026-10-30",
+              "priority": "high",
+              "acceptance_criteria": "With an expired session, waiter/bill requests are rejected; tested on the live site and recorded as evidence."
+            },
+            {
+              "key": "meza-appcheck",
+              "title": "Turn on Firebase App Check enforcement",
+              "start_date": "2026-11-02",
+              "due_date": "2026-11-03",
+              "priority": "high",
+              "acceptance_criteria": "Requests without a valid App Check token are refused; normal ordering still works."
+            },
+            {
+              "key": "meza-ci",
+              "title": "Fix the failing GitHub Actions run",
+              "start_date": "2026-11-03",
+              "due_date": "2026-11-04",
+              "acceptance_criteria": "Latest CI run on the main branch is green (shows as Automated evidence after sync)."
+            },
+            {
+              "key": "meza-privacy",
+              "title": "Finish and publish the privacy notice",
+              "start_date": "2026-11-04",
+              "due_date": "2026-11-06",
+              "acceptance_criteria": "Privacy notice reachable from the app footer.",
+              "depends_on": ["meza-session", "meza-appcheck"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "match": "6",
+      "label": "Hands-On AI/ML Research and Model Training",
+      "update": { "lifecycle": "completed" }
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import { patch, post } from "../lib/api";
 import { LIFECYCLES, titleCase } from "../lib/format";
 import type { Lifecycle, Priority, Project } from "../lib/types";
 import { ProjectSelect } from "./domain";
-import { Button, Field, InlineError, Input, Modal, Select, Textarea } from "./ui";
+import { Button, Field, InlineError, Input, Modal, Select, Textarea, toast, useValidation } from "./ui";
 
 const TEXT_FIELDS: [keyof Project, string, string?][] = [
   ["purpose", "Purpose / scope"],
@@ -41,13 +41,17 @@ export default function ProjectForm({ open, onClose, project }: { open: boolean;
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [form, setForm] = useState<Form>(toForm(project));
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const v = useValidation({
+    name: form.name?.trim() ? undefined : "Give the project a name.",
+    target_date: form.start_date && form.target_date && form.target_date < form.start_date ? "Target date is before the start date." : undefined,
+  });
+  const resetValidation = v.reset;
   useEffect(() => {
     if (open) {
       setForm(toForm(project));
-      setErrors({});
+      resetValidation();
     }
-  }, [open, project]);
+  }, [open, project, resetValidation]);
 
   const save = useMutation({
     mutationFn: () => {
@@ -69,6 +73,7 @@ export default function ProjectForm({ open, onClose, project }: { open: boolean;
       void qc.invalidateQueries({ queryKey: ["projects"] });
       void qc.invalidateQueries({ queryKey: ["project", saved.id] });
       void qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast(project ? "Project saved" : `Project “${saved.name}” created`);
       onClose();
       if (!project) navigate(`/projects/${saved.id}`);
     },
@@ -76,11 +81,7 @@ export default function ProjectForm({ open, onClose, project }: { open: boolean;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const next: Record<string, string> = {};
-    if (!form.name?.trim()) next.name = "Give the project a name.";
-    if (form.start_date && form.target_date && form.target_date < form.start_date) next.target_date = "Target date is before the start date.";
-    setErrors(next);
-    if (Object.keys(next).length === 0) save.mutate();
+    if (v.check()) save.mutate();
   };
   const set = (key: string) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -89,7 +90,7 @@ export default function ProjectForm({ open, onClose, project }: { open: boolean;
       open={open}
       onClose={onClose}
       title={project ? `Edit ${project.name}` : "New project"}
-      wide
+      panel
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
@@ -100,8 +101,8 @@ export default function ProjectForm({ open, onClose, project }: { open: boolean;
       }
     >
       <form id="project-form" onSubmit={submit} className="space-y-4" noValidate>
-        <Field label="Name" error={errors.name}>
-          {(p) => <Input {...p} value={form.name} onChange={set("name")} maxLength={200} autoFocus />}
+        <Field label="Name" error={v.error("name")}>
+          {(p) => <Input {...p} value={form.name} onChange={set("name")} onBlur={() => v.blur("name")} maxLength={200} autoFocus />}
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Category">{(p) => <Input {...p} value={form.category} onChange={set("category")} placeholder="e.g. IoT / Water" />}</Field>
@@ -129,8 +130,8 @@ export default function ProjectForm({ open, onClose, project }: { open: boolean;
             )}
           </Field>
           <Field label="Start date">{(p) => <Input {...p} type="date" value={form.start_date} onChange={set("start_date")} />}</Field>
-          <Field label="Target date" error={errors.target_date}>
-            {(p) => <Input {...p} type="date" value={form.target_date} onChange={set("target_date")} />}
+          <Field label="Target date" error={v.error("target_date")}>
+            {(p) => <Input {...p} type="date" value={form.target_date} onChange={set("target_date")} onBlur={() => v.blur("target_date")} />}
           </Field>
           <Field label="Part of (parent project)" hint="Sub-projects aren't counted twice on the dashboard.">
             {(p) => (
