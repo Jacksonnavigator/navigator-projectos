@@ -8,7 +8,7 @@ async function signIn(page: Page) {
   await page.goto("/");
   await expect(page).toHaveURL(/\/login/);
   await page.getByRole("button", { name: "Development sign-in" }).click();
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ })).toBeVisible();
 }
 
 test.describe.configure({ mode: "serial" });

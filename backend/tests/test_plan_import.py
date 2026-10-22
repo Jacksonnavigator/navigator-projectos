@@ -80,3 +80,8 @@ def test_uploaded_plan_validation(api):
 def test_unknown_bundled_plan(api):
     assert api.post("/api/v1/import/plans/../etc?dry_run=true").status_code == 404
     assert api.post("/api/v1/import/plans/nope?dry_run=true").status_code == 404
+
+
+def test_all_bundled_plans_parse():
+    for info in bundled_plans():
+        assert load_bundled(info["id"]).projects

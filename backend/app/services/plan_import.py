@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import NotFound, ValidationFailed
 from app.models import Milestone, Project, Task, TaskDependency
-from app.services.projects import record_activity
+from app.services.projects import mark_completion, record_activity
 from app.services.tasks import would_create_cycle
 
 PLANS_DIR = Path(__file__).resolve().parent.parent.parent / "plans"
@@ -50,7 +50,9 @@ class PlanMilestone(BaseModel):
 
 
 class PlanProjectUpdate(BaseModel):
-    lifecycle: Literal["idea", "planning", "active", "testing", "deployed", "paused", "archived"] | None = None
+    lifecycle: (
+        Literal["idea", "planning", "active", "testing", "deployed", "completed", "paused", "archived"] | None
+    ) = None
     priority: Literal["P1", "P2", "P3", "P4"] | None = None
     start_date: date | None = None
     target_date: date | None = None
@@ -143,6 +145,8 @@ def apply_plan(db: Session, plan: Plan, *, dry_run: bool) -> dict[str, Any]:
             raise ValidationFailed(f"{project.name}: target date is before start date")
         for key, value in changes.items():
             setattr(project, key, value)
+        if "lifecycle" in changes:
+            mark_completion(project)
         if changes:
             counts["projects_updated"] += 1
         entry: dict[str, Any] = {"project": project.name, "changes": sorted(changes), "milestones": [], "tasks": []}

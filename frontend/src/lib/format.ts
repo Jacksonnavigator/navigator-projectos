@@ -1,6 +1,6 @@
 import type { Lifecycle, TaskPriority, TaskStatus } from "./types";
 
-export const LIFECYCLES: Lifecycle[] = ["idea", "planning", "active", "testing", "deployed", "paused", "archived"];
+export const LIFECYCLES: Lifecycle[] = ["idea", "planning", "active", "testing", "deployed", "completed", "paused", "archived"];
 export const TASK_STATUSES: TaskStatus[] = ["backlog", "todo", "in_progress", "blocked", "in_review", "done"];
 export const TASK_PRIORITIES: TaskPriority[] = ["low", "medium", "high", "urgent"];
 
@@ -19,6 +19,7 @@ export const LIFECYCLE_TONE: Record<Lifecycle, "neutral" | "accent" | "ok" | "wa
   active: "accent",
   testing: "warn",
   deployed: "ok",
+  completed: "ok",
   paused: "neutral",
   archived: "neutral",
 };

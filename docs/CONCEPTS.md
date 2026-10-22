@@ -13,7 +13,7 @@ The rules the app follows, so every number and date it shows can be traced back 
 
 ## Stage (lifecycle)
 
-`idea → planning → active → testing → deployed`, plus `paused` and `archived`. On import the stage is **inferred** from the Status text (you can change it afterwards):
+`idea → planning → active → testing → deployed → completed`, plus `paused` and `archived`. **Completed** projects keep all their records as evidence, get a completion date automatically, appear in the dashboard's *Completed* list, and are left out of health flags and “what to work on next”. On import the stage is **inferred** from the Status text (you can change it afterwards):
 
 | Status text contains | Stage |
 | --- | --- |
@@ -91,3 +91,18 @@ Jobs live in the `background_jobs` table:
 ## Money
 
 Amounts are stored as `NUMERIC(16,2)` with an explicit 3-letter currency (default TZS). Totals are computed per currency and **never** added across currencies. Estimated, committed and actual amounts are kept apart.
+
+## Work plans
+
+A work plan (`backend/plans/*.json`) fills in project stages, priorities, dates, milestones, tasks and dependencies in one step. Open **Import register → Load a work plan**, press **Preview** (nothing is saved), then **Apply plan**.
+
+* Projects are matched by register ID (e.g. `"match": "17"`) or by exact name.
+* Milestones and tasks are matched by title within their project, so applying a plan again **updates** dates and criteria instead of duplicating, and never changes a task's status.
+* To add a new plan, copy an existing file, change it, and push; it appears in the list after the next deploy.
+
+## Dashboard
+
+* **Focus projects:** one card per P1 project: progress ring (done ÷ all top-level tasks), next open milestone with a countdown, the next task (in-progress first, then earliest due), and when it was last verified.
+* **This week:** Monday–Sunday with tasks and milestones due each day. Ticking a box marks a task done immediately and saves it. GitHub issues can only be finished on GitHub.
+* **Tasks completed per week:** top-level tasks finished in each of the last 8 weeks.
+* **Projects by stage:** click a bar to open those projects.

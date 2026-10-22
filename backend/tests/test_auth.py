@@ -11,7 +11,7 @@ def test_health_live_and_ready(client):
     assert client.get("/api/v1/health/live").json() == {"status": "ok"}
     ready = client.get("/api/v1/health/ready")
     assert ready.status_code == 200
-    assert ready.json()["migration"] == "0001"
+    assert ready.json()["migration"] == "0002"
 
 
 def test_security_headers_and_request_id(client):

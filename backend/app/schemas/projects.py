@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 from app.schemas.common import ORM
 
-Lifecycle = Literal["idea", "planning", "active", "testing", "deployed", "paused", "archived"]
+Lifecycle = Literal["idea", "planning", "active", "testing", "deployed", "completed", "paused", "archived"]
 Priority = Literal["P1", "P2", "P3", "P4"]
 LinkKind = Literal["github_repo", "huggingface", "website", "firebase", "docs", "local_path", "other"]
 
@@ -135,6 +135,7 @@ class ProjectSummary(ORM):
     parent_id: uuid.UUID | None
     tags: list[str]
     archived_at: datetime | None
+    completed_on: date | None = None
     updated_at: datetime
     # Computed (see services/projects.py)
     open_tasks: int = 0

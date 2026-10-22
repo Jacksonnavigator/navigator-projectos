@@ -122,6 +122,7 @@ def create_project(db: Session, data: ProjectCreate) -> Project:
         raise Conflict(f"A project named '{data.name}' already exists")
     _ensure_parent_ok(db, None, data.parent_id)
     project = Project(**data.model_dump())
+    mark_completion(project)
     db.add(project)
     db.flush()
     for kind, url in extract_links(data.repository_text):
@@ -152,8 +153,18 @@ def update_project(db: Session, project_id: uuid.UUID, data: ProjectUpdate) -> P
         raise ValidationFailed("Target date must be on or after the start date")
     for key, value in changes.items():
         setattr(project, key, value)
+    if "lifecycle" in changes:
+        mark_completion(project)
     db.commit()
     return get_project(db, project.id)
+
+
+def mark_completion(project: Project) -> None:
+    """Keep completed_on in step with the lifecycle."""
+    if project.lifecycle == "completed" and project.completed_on is None:
+        project.completed_on = date.today()
+    elif project.lifecycle != "completed":
+        project.completed_on = None
 
 
 def set_archived(db: Session, project_id: uuid.UUID, archived: bool) -> Project:
@@ -393,6 +404,7 @@ SUMMARY_FIELDS = (
     "parent_id",
     "tags",
     "archived_at",
+    "completed_on",
     "updated_at",
 )
 

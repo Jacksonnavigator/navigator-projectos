@@ -15,6 +15,8 @@
   --color-accent-strong: #92400e;
   --color-accent-soft: #fef3c7;
   --color-accent-ink: #ffffff;
+  /* Chart marks (validated against the light/dark surfaces with the dataviz palette checker). */
+  --color-chart: #b45309;
   --color-ok: #15803d;
   --color-ok-soft: #dcfce7;
   --color-warn: #a16207;
@@ -38,6 +40,7 @@
   --color-accent-strong: #fbbf24;
   --color-accent-soft: #3b2a0a;
   --color-accent-ink: #1c1917;
+  --color-chart: #d97706;
   --color-ok: #4ade80;
   --color-ok-soft: #12301d;
   --color-warn: #facc15;

@@ -1,0 +1,123 @@
+{
+  "name": "Finished projects + rough dates for P2/P3 (Jan – May 2027)",
+  "description": "Marks Eagle Vision, Meza Order and the Greenhouse placement as Completed. Gives P2/P3 projects start/target dates after the 8-week focus, each with a first task.",
+  "projects": [
+    { "match": "19", "label": "Eagle Vision Safaris Website", "update": { "lifecycle": "completed" } },
+    { "match": "17", "label": "Meza Order", "update": { "lifecycle": "completed" } },
+    { "match": "10", "label": "Greenhouse / Open-Field Crop Monitoring", "update": { "lifecycle": "completed" } },
+    {
+      "match": "8",
+      "label": "Smart Water Monitoring and Management System",
+      "update": { "priority": "P2", "start_date": "2027-01-04", "target_date": "2027-02-12" },
+      "tasks": [
+        {
+          "key": "water-calibrate",
+          "title": "Validate depth readings against known water levels",
+          "start_date": "2027-01-04",
+          "due_date": "2027-01-15",
+          "acceptance_criteria": "At least 3 reference depths measured; readings and errors recorded as Measured evidence."
+        },
+        {
+          "key": "water-resend",
+          "title": "Test offline queue and resend with original timestamps",
+          "start_date": "2027-01-18",
+          "due_date": "2027-01-29",
+          "acceptance_criteria": "Gateway offline for 1 hour; all readings arrive later with their original timestamps.",
+          "depends_on": ["water-calibrate"]
+        }
+      ]
+    },
+    {
+      "match": "7",
+      "label": "Smart Agriculture and Automated Irrigation",
+      "update": { "priority": "P2", "start_date": "2027-01-04", "target_date": "2027-02-26" },
+      "tasks": [
+        {
+          "key": "agri-sensor",
+          "title": "Single-sensor RS485 Modbus test with correct power and direction control",
+          "start_date": "2027-01-04",
+          "due_date": "2027-01-15",
+          "acceptance_criteria": "Stable Modbus readings from one sensor for 10 minutes; wiring photo uploaded to Documents."
+        },
+        {
+          "key": "agri-relay",
+          "title": "Test relay (GPIO33) and solenoid valve safely",
+          "start_date": "2027-01-18",
+          "due_date": "2027-01-29",
+          "acceptance_criteria": "Valve opens and closes on command 20 times without failure.",
+          "depends_on": ["agri-sensor"]
+        }
+      ]
+    },
+    {
+      "match": "4",
+      "label": "Tanzania Bird Species Identifier",
+      "update": { "priority": "P2", "start_date": "2027-02-15", "target_date": "2027-03-12" },
+      "tasks": [
+        {
+          "key": "bird-inference",
+          "title": "Reproducible inference script tested on a labelled image set",
+          "start_date": "2027-02-15",
+          "due_date": "2027-02-26",
+          "acceptance_criteria": "export.pkl loads; accuracy on a small labelled set recorded as Measured evidence."
+        }
+      ]
+    },
+    {
+      "match": "2",
+      "label": "AI Workforce / AI Employee Platform",
+      "update": { "priority": "P2", "start_date": "2027-03-01", "target_date": "2027-04-23" },
+      "tasks": [
+        {
+          "key": "aiw-env",
+          "title": "Verify local environment and PostgreSQL connection",
+          "start_date": "2027-03-01",
+          "due_date": "2027-03-05",
+          "acceptance_criteria": "App starts, tables exist, dashboard loads."
+        }
+      ]
+    },
+    {
+      "match": "25",
+      "label": "Electric Motorbike Rental Business",
+      "update": { "priority": "P2", "start_date": "2027-03-15", "target_date": "2027-04-09" },
+      "tasks": [
+        {
+          "key": "moto-economics",
+          "title": "Per-bike unit-economics model and pilot plan",
+          "start_date": "2027-03-15",
+          "due_date": "2027-03-26",
+          "acceptance_criteria": "Conservative model (costs, daily rent, utilisation, payback) saved in Documents and the main figures in Business."
+        }
+      ]
+    },
+    {
+      "match": "9",
+      "label": "TWIGAS Prepaid Water Meter",
+      "update": { "priority": "P3", "start_date": "2027-04-12", "target_date": "2027-05-21" },
+      "tasks": [
+        {
+          "key": "twigas-token",
+          "title": "Specify secure token generation and anti-replay scheme",
+          "start_date": "2027-04-12",
+          "due_date": "2027-04-23",
+          "acceptance_criteria": "Written spec covering 20-digit tokens, reuse protection and balance persistence on power loss."
+        }
+      ]
+    },
+    {
+      "match": "12",
+      "label": "RestaurantOS",
+      "update": { "priority": "P3", "start_date": "2027-04-26", "target_date": "2027-05-14" },
+      "tasks": [
+        {
+          "key": "ros-decide",
+          "title": "Decide: new product or the next version of Meza Order",
+          "start_date": "2027-04-26",
+          "due_date": "2027-04-30",
+          "acceptance_criteria": "Decision written as a Decision note in Documents."
+        }
+      ]
+    }
+  ]
+}
