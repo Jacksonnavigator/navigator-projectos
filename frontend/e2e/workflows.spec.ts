@@ -7,8 +7,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 async function signIn(page: Page) {
   await page.goto("/");
   await expect(page).toHaveURL(/\/login/);
-  await page.getByRole("button", { name: "Development sign-in" }).click();
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await page.getByRole("button", { name: "Sign in for development" }).click();
+  await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ })).toBeVisible();
 }
 
 test.describe.configure({ mode: "serial" });
@@ -33,7 +33,7 @@ test("import the register, then browse projects", async ({ page }) => {
 
   await page.getByRole("link", { name: "View projects" }).click();
   await expect(page.getByText("7 projects")).toBeVisible();
-  await page.getByLabel("Search").fill("meza");
+  await page.getByLabel("Search projects").fill("meza");
   await expect(page.getByRole("link", { name: /Meza Order/ })).toBeVisible();
   await page.getByRole("link", { name: /Meza Order/ }).click();
   await expect(page.getByRole("heading", { name: /Meza Order/ })).toBeVisible();

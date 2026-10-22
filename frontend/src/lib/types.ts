@@ -15,7 +15,7 @@ export interface Page<T> {
   offset: number;
 }
 
-export type Lifecycle = "idea" | "planning" | "active" | "testing" | "deployed" | "paused" | "archived";
+export type Lifecycle = "idea" | "planning" | "active" | "testing" | "deployed" | "completed" | "paused" | "archived";
 export type Priority = "P1" | "P2" | "P3" | "P4";
 export type TaskStatus = "backlog" | "todo" | "in_progress" | "blocked" | "in_review" | "done";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
@@ -50,6 +50,7 @@ export interface ProjectSummary {
   parent_id: string | null;
   tags: string[];
   archived_at: string | null;
+  completed_on: string | null;
   updated_at: string;
   open_tasks: number;
   done_tasks: number;
@@ -174,6 +175,7 @@ export interface TimelineData {
   window_end: string;
   today: string;
   projects: TimelineProject[];
+  undated_projects: { id: string; name: string; lifecycle: Lifecycle; priority: Priority | null }[];
   items: TimelineItem[];
   milestones: {
     id: string;
@@ -253,6 +255,10 @@ export interface Dashboard {
     project_id: string | null;
   }[];
   next_actions: NextAction[];
+  focus: FocusCard[];
+  week: WeekDay[];
+  throughput: { week_start: string; done: number }[];
+  completed_projects: { id: string; name: string; completed_on: string | null; category: string | null }[];
   sync: { repos_synced: number; boards_synced: number; last_synced_at: string | null; errors: number };
   generated_at: string;
 }
@@ -421,4 +427,28 @@ export interface ImportPreview {
   priority_unmatched: { name: string; reason: string }[];
   suggestions: ImportSuggestion[];
   warnings: string[];
+}
+
+export interface FocusCard {
+  id: string;
+  name: string;
+  lifecycle: Lifecycle;
+  open_tasks: number;
+  done_tasks: number;
+  progress: number | null;
+  target_date: string | null;
+  days_to_target: number | null;
+  last_verified_at: string | null;
+  next_milestone: { id: string; title: string; date: string; days_left: number } | null;
+  next_task: Task | null;
+}
+
+export type WeekItem =
+  | { kind: "task"; task: Task }
+  | { kind: "milestone"; id: string; title: string; project_name: string; project_id: string; status: string };
+
+export interface WeekDay {
+  date: string;
+  is_today: boolean;
+  items: WeekItem[];
 }

@@ -57,7 +57,7 @@ export default function TaskList({
       <Toolbar>
         <div className="w-full sm:w-56">
           <label htmlFor="t-search" className="mb-1 block text-xs font-medium text-muted">
-            Search
+            Search tasks
           </label>
           <Input id="t-search" type="search" value={filters.q ?? ""} onChange={(e) => set("q", e.target.value)} placeholder="Title or description" />
         </div>

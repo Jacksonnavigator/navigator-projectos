@@ -4,7 +4,7 @@ import { del, get, post } from "../lib/api";
 import { formatDate, formatMoney, titleCase } from "../lib/format";
 import type { BusinessEntry, BusinessSummaryRow } from "../lib/types";
 import { ProjectSelect } from "./domain";
-import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Input, LoadingBlock, Modal, Select, Textarea } from "./ui";
+import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Input, LoadingBlock, Modal, Select, Textarea, toast, useValidation } from "./ui";
 
 const KINDS = ["cost", "revenue", "funding_need", "investment", "proposal", "opportunity"];
 const STATUSES = ["estimated", "committed", "actual", "open", "won", "lost"];
@@ -127,13 +127,20 @@ function BusinessForm({ open, onClose, projectId }: { open: boolean; onClose: ()
   const qc = useQueryClient();
   const [f, setF] = useState<Record<string, string>>({});
   const [lastOpen, setLastOpen] = useState(false);
+  const v = useValidation({
+    project: f.project_id ? undefined : "Choose the project this belongs to.",
+    title: f.title?.trim() ? undefined : "Give the entry a short title.",
+    amount: !f.amount || /^\d+(\.\d{1,2})?$/.test(f.amount) ? undefined : "Use a positive number with up to 2 decimals.",
+    currency: /^[A-Z]{3}$/.test(f.currency ?? "") ? undefined : "Use a 3-letter code such as TZS or USD.",
+  });
   if (open !== lastOpen) {
     setLastOpen(open);
-    if (open) setF({ project_id: projectId ?? "", kind: "cost", status: "estimated", currency: "TZS" });
+    if (open) {
+      setF({ project_id: projectId ?? "", kind: "cost", status: "estimated", currency: "TZS" });
+      v.reset();
+    }
   }
   const set = (k: string) => (e: { target: { value: string } }) => setF((x) => ({ ...x, [k]: e.target.value }));
-  const amountValid = !f.amount || /^\d+(\.\d{1,2})?$/.test(f.amount);
-  const valid = f.project_id && f.title?.trim() && amountValid && /^[A-Z]{3}$/.test(f.currency ?? "");
   const save = useMutation({
     mutationFn: () =>
       post("/business", {
@@ -149,12 +156,13 @@ function BusinessForm({ open, onClose, projectId }: { open: boolean; onClose: ()
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["business"] });
+      toast("Business entry saved");
       onClose();
     },
   });
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (valid) save.mutate();
+    if (v.check()) save.mutate();
   };
   return (
     <Modal
@@ -164,7 +172,7 @@ function BusinessForm({ open, onClose, projectId }: { open: boolean; onClose: ()
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" form="biz-form" busy={save.isPending} disabled={!valid}>
+          <Button variant="primary" type="submit" form="biz-form" busy={save.isPending}>
             Save entry
           </Button>
         </>
@@ -172,11 +180,11 @@ function BusinessForm({ open, onClose, projectId }: { open: boolean; onClose: ()
     >
       <form id="biz-form" onSubmit={submit} className="space-y-4">
         {!projectId && (
-          <Field label="Project">
-            {(p) => <ProjectSelect {...p} value={f.project_id} onChange={(id) => setF((x) => ({ ...x, project_id: id ?? "" }))} emptyLabel="Choose a project" />}
+          <Field label="Project" error={v.error("project")}>
+            {(p) => <ProjectSelect {...p} value={f.project_id} onChange={(id) => setF((x) => ({ ...x, project_id: id ?? "" }))} onBlur={() => v.blur("project")} emptyLabel="Choose a project" />}
           </Field>
         )}
-        <Field label="Title">{(p) => <Input {...p} value={f.title ?? ""} onChange={set("title")} placeholder="e.g. 5 electric motorbikes" />}</Field>
+        <Field label="Title" error={v.error("title")}>{(p) => <Input {...p} value={f.title ?? ""} onChange={set("title")} onBlur={() => v.blur("title")} placeholder="e.g. 5 electric motorbikes" />}</Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Kind">
             {(p) => (
@@ -200,11 +208,11 @@ function BusinessForm({ open, onClose, projectId }: { open: boolean; onClose: ()
               </Select>
             )}
           </Field>
-          <Field label="Amount" error={amountValid ? undefined : "Use a positive number with up to 2 decimals"}>
-            {(p) => <Input {...p} inputMode="decimal" value={f.amount ?? ""} onChange={set("amount")} />}
+          <Field label="Amount" error={v.error("amount")}>
+            {(p) => <Input {...p} inputMode="decimal" value={f.amount ?? ""} onChange={set("amount")} onBlur={() => v.blur("amount")} />}
           </Field>
-          <Field label="Currency" hint="3-letter code, e.g. TZS, USD">
-            {(p) => <Input {...p} value={f.currency ?? ""} onChange={(e) => setF((x) => ({ ...x, currency: e.target.value.toUpperCase().slice(0, 3) }))} />}
+          <Field label="Currency" hint="3-letter code, e.g. TZS, USD" error={v.error("currency")}>
+            {(p) => <Input {...p} value={f.currency ?? ""} onChange={(e) => setF((x) => ({ ...x, currency: e.target.value.toUpperCase().slice(0, 3) }))} onBlur={() => v.blur("currency")} />}
           </Field>
           <Field label="Counterparty">{(p) => <Input {...p} value={f.counterparty ?? ""} onChange={set("counterparty")} placeholder="Client, investor, supplier" />}</Field>
           <Field label="Date">{(p) => <Input {...p} type="date" value={f.entry_date ?? ""} onChange={set("entry_date")} />}</Field>

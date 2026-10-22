@@ -4,9 +4,12 @@ import {
   type ReactNode,
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
+  useCallback,
   useEffect,
   useId,
   useRef,
+  useState,
+  useSyncExternalStore,
 } from "react";
 import { ApiError } from "../lib/api";
 
@@ -35,8 +38,8 @@ export function Button({
     <button
       type="button"
       className={cx(
-        "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-        size === "sm" ? "h-8 px-3 text-sm" : "h-10 px-4 text-sm",
+        "inline-flex items-center justify-center gap-2 rounded-md font-medium disabled:cursor-not-allowed disabled:opacity-50",
+        size === "sm" ? "h-8 px-3 text-sm pointer-coarse:h-11" : "h-10 px-4 text-sm pointer-coarse:h-11",
         VARIANTS[variant],
         className,
       )}
@@ -83,7 +86,7 @@ export function Card({ className, children, title, actions }: {
   actions?: ReactNode;
 }) {
   return (
-    <section className={cx("rounded-lg border border-line bg-surface", className)}>
+    <section className={cx("min-w-0 rounded-lg border border-line bg-surface", className)}>
       {(title || actions) && (
         <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
           {title && <h2 className="text-sm font-semibold">{title}</h2>}
@@ -219,20 +222,27 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   return <select {...props} className={cx(inputClass, "pr-8", props.className)} />;
 }
 
-export function Modal({ open, onClose, title, children, footer, wide }: {
+export function Modal({ open, onClose, title, children, footer, wide, panel }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
+  /** Slide-over from the right: for multi-field editing that keeps the page in view. */
+  panel?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
     // showModal() traps focus and restores it to the opener on close.
-    if (open && !dialog.open) dialog.showModal?.();
+    if (open && !dialog.open) {
+      dialog.showModal?.();
+      // showModal focuses the first control (the close button); prefer an explicit default such as Cancel.
+      dialog.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+    }
     if (!open && dialog.open) dialog.close?.();
   }, [open]);
   return (
@@ -243,31 +253,30 @@ export function Modal({ open, onClose, title, children, footer, wide }: {
         e.preventDefault();
         onClose();
       }}
-      aria-labelledby="modal-title"
+      onClick={(e) => {
+        // Clicking the dimmed backdrop (the dialog element itself) closes it.
+        if (e.target === ref.current) onClose();
+      }}
+      aria-labelledby={titleId}
       className={cx(
-        "m-auto w-[calc(100%-2rem)] rounded-lg border border-line bg-surface p-0 text-ink backdrop:bg-black/50",
-        wide ? "max-w-3xl" : "max-w-lg",
+        "border border-line bg-surface p-0 text-ink backdrop:bg-black/50",
+        panel
+          ? "panel-enter fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-dvh w-full max-w-xl rounded-none border-y-0 border-r-0"
+          : cx("dialog-enter m-auto w-[calc(100%-2rem)] rounded-lg", wide ? "max-w-3xl" : "max-w-lg"),
       )}
     >
       {open && (
-        <div className="flex max-h-[85vh] flex-col">
-          <header className="flex items-center justify-between border-b border-line px-5 py-3">
-            <h2 id="modal-title" className="font-semibold">
+        <div className={cx("flex flex-col", panel ? "h-full" : "max-h-[85vh]")}>
+          <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
+            <h2 id={titleId} className="text-base font-semibold">
               {title}
             </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="rounded p-1 text-muted hover:bg-sunken hover:text-ink"
-            >
-              <svg viewBox="0 0 20 20" className="size-5" aria-hidden="true">
-                <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </button>
+            <IconButton label="Close" shortcut="Esc" onClick={onClose} align="end">
+              <path d="M5 5l10 10M15 5L5 15" />
+            </IconButton>
           </header>
-          <div className="overflow-y-auto px-5 py-4">{children}</div>
-          {footer && <footer className="flex justify-end gap-2 border-t border-line px-5 py-3">{footer}</footer>}
+          <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+          {footer && <footer className="flex flex-wrap justify-end gap-2 border-t border-line px-5 py-3">{footer}</footer>}
         </div>
       )}
     </dialog>
@@ -290,7 +299,9 @@ export function ConfirmDialog({ open, title, message, confirmLabel, onConfirm, o
       title={title}
       footer={
         <>
-          <Button onClick={onCancel}>Cancel</Button>
+          <Button onClick={onCancel} data-autofocus="">
+            Cancel
+          </Button>
           <Button variant="danger" onClick={onConfirm} busy={busy}>
             {confirmLabel}
           </Button>
@@ -304,4 +315,148 @@ export function ConfirmDialog({ open, title, message, confirmLabel, onConfirm, o
 
 export function Toolbar({ children }: { children: ReactNode }) {
   return <div className="mb-4 flex flex-wrap items-end gap-3">{children}</div>;
+}
+
+/** Tooltip shown on hover and on keyboard focus (not the native title attribute). */
+export function Tooltip({ label, shortcut, children, side = "bottom", align = "center" }: {
+  label: string;
+  shortcut?: string;
+  children: ReactNode;
+  side?: "bottom" | "top";
+  /** "end" keeps the tooltip inside the container when the control sits at a right edge. */
+  align?: "center" | "end";
+}) {
+  return (
+    <span className="group/tt relative inline-flex">
+      {children}
+      <span
+        role="tooltip"
+        className={cx(
+          "pointer-events-none absolute z-50 hidden items-center gap-1.5 rounded-md border border-line bg-ink px-2 py-1 text-xs whitespace-nowrap text-canvas group-focus-within/tt:flex group-hover/tt:flex",
+          side === "bottom" ? "top-full mt-1.5" : "bottom-full mb-1.5",
+          align === "end" ? "right-0" : "left-1/2 -translate-x-1/2",
+        )}
+      >
+        {label}
+        {shortcut && <kbd className="rounded bg-canvas/20 px-1 font-sans text-xs">{shortcut}</kbd>}
+      </span>
+    </span>
+  );
+}
+
+/** Square icon-only button with a real tooltip whose text matches its accessible name. */
+export function IconButton({ label, shortcut, children, onClick, className, side, align }: {
+  label: string;
+  shortcut?: string;
+  children: ReactNode;
+  onClick?: () => void;
+  className?: string;
+  side?: "bottom" | "top";
+  align?: "center" | "end";
+}) {
+  return (
+    <Tooltip label={label} shortcut={shortcut} side={side} align={align}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        aria-keyshortcuts={shortcut}
+        className={cx("grid size-9 place-items-center rounded-md text-muted hover:bg-sunken hover:text-ink pointer-coarse:size-11", className)}
+      >
+        <svg viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          {children}
+        </svg>
+      </button>
+    </Tooltip>
+  );
+}
+
+/* ------------------------------------------------------------------ toasts */
+
+interface ToastItem {
+  id: number;
+  message: string;
+  tone: "ok" | "bad" | "neutral";
+  action?: { label: string; onClick: () => void };
+}
+
+let toastItems: ToastItem[] = [];
+let toastSeq = 0;
+const toastListeners = new Set<() => void>();
+const emitToasts = () => toastListeners.forEach((l) => l());
+
+/** Show a short confirmation ("Task marked done") with an optional action such as Undo. */
+export function toast(message: string, opts: { tone?: ToastItem["tone"]; action?: ToastItem["action"] } = {}) {
+  const item: ToastItem = { id: ++toastSeq, message, tone: opts.tone ?? "ok", action: opts.action };
+  toastItems = [...toastItems.slice(-2), item];
+  emitToasts();
+  setTimeout(() => dismissToast(item.id), opts.action ? 7000 : 4000);
+}
+
+function dismissToast(id: number) {
+  toastItems = toastItems.filter((t) => t.id !== id);
+  emitToasts();
+}
+
+export function Toaster() {
+  const items = useSyncExternalStore(
+    (cb) => {
+      toastListeners.add(cb);
+      return () => toastListeners.delete(cb);
+    },
+    () => toastItems,
+  );
+  return (
+    <div className="pointer-events-none fixed right-4 bottom-4 left-4 z-[60] flex flex-col items-end gap-2 sm:left-auto" aria-live="polite" role="status">
+      {items.map((t) => (
+        <div
+          key={t.id}
+          className="toast-enter pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm shadow-lg"
+        >
+          <span className={cx("grid size-5 shrink-0 place-items-center rounded-full text-xs", t.tone === "ok" ? "bg-ok-soft text-ok" : t.tone === "bad" ? "bg-bad-soft text-bad" : "bg-sunken text-muted")} aria-hidden="true">
+            {t.tone === "ok" ? "✓" : t.tone === "bad" ? "!" : "i"}
+          </span>
+          <span className="min-w-0 flex-1">{t.message}</span>
+          {t.action && (
+            <button
+              type="button"
+              className="shrink-0 font-medium text-accent hover:underline"
+              onClick={() => {
+                t.action!.onClick();
+                dismissToast(t.id);
+              }}
+            >
+              {t.action.label}
+            </button>
+          )}
+          <button type="button" className="shrink-0 rounded px-1 text-muted hover:text-ink" onClick={() => dismissToast(t.id)} aria-label="Dismiss notification">
+            ✕
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Form validation timing: an error shows after the field is left (blur) or after a submit attempt,
+ * and disappears as soon as the value becomes valid. Submit buttons stay clickable.
+ */
+export function useValidation<K extends string>(errors: Partial<Record<K, string | undefined>>) {
+  const [touched, setTouched] = useState<Partial<Record<K, boolean>>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const reset = useCallback(() => {
+    setTouched({});
+    setSubmitted(false);
+  }, []);
+  return {
+    error: (field: K) => ((touched[field] || submitted) ? errors[field] : undefined),
+    blur: (field: K) => setTouched((t) => ({ ...t, [field]: true })),
+    /** Call on submit; returns true when the form is valid. */
+    check: () => {
+      setSubmitted(true);
+      return Object.values(errors).every((e) => !e);
+    },
+    reset,
+  };
 }

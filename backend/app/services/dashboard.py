@@ -15,6 +15,8 @@ from app.services.tasks import serialize_tasks
 
 STALE_AFTER_DAYS = 30
 ACTIVE_LIFECYCLES = ("active", "testing", "deployed")
+FINISHED_LIFECYCLES = ("completed", "archived")
+THROUGHPUT_WEEKS = 8
 PRIORITY_ORDER = {"P1": 0, "P2": 1, "P3": 2, "P4": 3}
 
 
@@ -84,7 +86,7 @@ def build_dashboard(db: Session) -> dict[str, Any]:
                 }
             )
     for p in db.scalars(select(Project).where(live, Project.target_date.is_not(None), Project.target_date <= soon)):
-        if p.lifecycle in ("deployed", "archived") or p.target_date is None:
+        if p.lifecycle in ("deployed", *FINISHED_LIFECYCLES) or p.target_date is None:
             continue
         upcoming.append(
             {
@@ -99,7 +101,13 @@ def build_dashboard(db: Session) -> dict[str, Any]:
         )
     upcoming.sort(key=lambda x: x["date"])
 
-    projects = list(db.scalars(select(Project).where(live, Project.parent_id.is_(None))))
+    all_top = list(db.scalars(select(Project).where(live, Project.parent_id.is_(None))))
+    completed = sorted(
+        (p for p in all_top if p.lifecycle == "completed"),
+        key=lambda p: p.completed_on or date.min,
+        reverse=True,
+    )
+    projects = [p for p in all_top if p.lifecycle != "completed"]
     stats = project_stats(db, [p.id for p in projects])
     stale_cutoff = utcnow() - timedelta(days=STALE_AFTER_DAYS)
     health = []
@@ -112,7 +120,7 @@ def build_dashboard(db: Session) -> dict[str, Any]:
             flags.append("no_recent_evidence")
         if s.get("overdue_tasks"):
             flags.append("overdue_tasks")
-        if p.target_date and p.target_date < today and p.lifecycle not in ("deployed", "archived"):
+        if p.target_date and p.target_date < today and p.lifecycle not in ("deployed", *FINISHED_LIFECYCLES):
             flags.append("past_target_date")
         health.append(
             {
@@ -175,6 +183,12 @@ def build_dashboard(db: Session) -> dict[str, Any]:
 
     return {
         "counts": counts,
+        "focus": _focus_cards(db, projects, stats, today),
+        "week": _week_strip(db, today, active_project),
+        "throughput": _throughput(db, today),
+        "completed_projects": [
+            {"id": p.id, "name": p.name, "completed_on": p.completed_on, "category": p.category} for p in completed
+        ],
         "overdue": serialize_tasks(db, overdue),
         "due_soon": serialize_tasks(db, due_soon),
         "in_progress": serialize_tasks(db, in_progress),
@@ -185,3 +199,107 @@ def build_dashboard(db: Session) -> dict[str, Any]:
         "sync": sync,
         "generated_at": utcnow(),
     }
+
+
+def _focus_cards(
+    db: Session, projects: list[Project], stats: dict[Any, dict[str, Any]], today: date
+) -> list[dict[str, Any]]:
+    """One card per P1 project: progress, next milestone, next open task, verification."""
+    cards = []
+    p1 = sorted((p for p in projects if p.priority == "P1"), key=lambda p: (p.priority_rank or 999, p.name))
+    for p in p1:
+        s = stats.get(p.id, {})
+        open_, done = s.get("open_tasks", 0), s.get("done_tasks", 0)
+        milestones = [
+            m
+            for m in db.scalars(select(Milestone).where(Milestone.project_id == p.id, Milestone.status == "open"))
+            if (m.local_due_date or m.due_date or m.gh_due_on)
+        ]
+        milestones.sort(key=lambda m: m.local_due_date or m.due_date or m.gh_due_on)  # type: ignore[arg-type,return-value]
+        next_ms = milestones[0] if milestones else None
+        ms_due = (next_ms.local_due_date or next_ms.due_date or next_ms.gh_due_on) if next_ms else None
+        next_task = db.scalar(
+            select(Task)
+            .where(Task.project_id == p.id, Task.parent_task_id.is_(None), Task.status != "done")
+            .order_by(
+                (Task.status == "in_progress").desc(),
+                _due_expr().asc().nulls_last(),
+                Task.position,
+            )
+            .limit(1)
+        )
+        cards.append(
+            {
+                "id": p.id,
+                "name": p.name,
+                "lifecycle": p.lifecycle,
+                "open_tasks": open_,
+                "done_tasks": done,
+                "progress": round(done / (open_ + done), 3) if (open_ + done) else None,
+                "target_date": p.target_date,
+                "days_to_target": (p.target_date - today).days if p.target_date else None,
+                "last_verified_at": s.get("last_verified_at"),
+                "next_milestone": (
+                    {"id": next_ms.id, "title": next_ms.title, "date": ms_due, "days_left": (ms_due - today).days}
+                    if next_ms and ms_due
+                    else None
+                ),
+                "next_task": serialize_tasks(db, [next_task])[0] if next_task else None,
+            }
+        )
+    return cards
+
+
+def _week_strip(db: Session, today: date, active_project: Any) -> list[dict[str, Any]]:
+    """Monday-Sunday of the current week, with tasks (done or not) and milestones due each day."""
+    monday = today - timedelta(days=today.weekday())
+    sunday = monday + timedelta(days=6)
+    tasks = list(
+        db.scalars(
+            select(Task)
+            .where(active_project, Task.parent_task_id.is_(None), _due_expr().between(monday, sunday))
+            .order_by(Task.status == "done", Task.position)
+        )
+    )
+    by_day: dict[date, list[dict[str, Any]]] = {monday + timedelta(days=i): [] for i in range(7)}
+    for t in serialize_tasks(db, tasks):
+        due = t["due_date"] or t["gh_board_end"]
+        if due in by_day:
+            by_day[due].append({"kind": "task", "task": t})
+    for m, pname in db.execute(
+        select(Milestone, Project.name)
+        .join(Project, Project.id == Milestone.project_id)
+        .where(Project.archived_at.is_(None))
+    ).all():
+        due = m.local_due_date or m.due_date or m.gh_due_on
+        if due in by_day:
+            by_day[due].append(
+                {
+                    "kind": "milestone",
+                    "id": m.id,
+                    "title": m.title,
+                    "project_name": pname,
+                    "project_id": m.project_id,
+                    "status": m.status,
+                }  # fmt: skip
+            )
+    return [{"date": d, "is_today": d == today, "items": items} for d, items in by_day.items()]
+
+
+def _throughput(db: Session, today: date) -> list[dict[str, Any]]:
+    """Top-level tasks completed per week (Monday-based) for the last THROUGHPUT_WEEKS weeks."""
+    this_monday = today - timedelta(days=today.weekday())
+    start = this_monday - timedelta(weeks=THROUGHPUT_WEEKS - 1)
+    week = func.date_trunc("week", Task.completed_at)
+    rows: dict[Any, int] = dict(
+        db.execute(  # type: ignore[arg-type]
+            select(week, func.count())
+            .where(Task.completed_at >= start, Task.parent_task_id.is_(None), Task.status == "done")
+            .group_by(week)
+        ).all()
+    )
+    counts = {k.date(): v for k, v in rows.items() if k is not None}
+    return [
+        {"week_start": start + timedelta(weeks=i), "done": counts.get(start + timedelta(weeks=i), 0)}
+        for i in range(THROUGHPUT_WEEKS)
+    ]

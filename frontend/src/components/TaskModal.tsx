@@ -5,7 +5,7 @@ import { DATE_SOURCE_LABEL, formatDate, formatDateTime, STATUS_LABEL, TASK_PRIOR
 import { Markdown } from "../lib/markdown";
 import type { Comment, Milestone, Page, Task, TaskPriority, TaskStatus } from "../lib/types";
 import { ProjectSelect, SourceBadge, StatusBadge } from "./domain";
-import { Button, ConfirmDialog, Field, InlineError, Input, LoadingBlock, Modal, Select, Textarea } from "./ui";
+import { Button, ConfirmDialog, Field, InlineError, Input, LoadingBlock, Modal, Select, Textarea, toast, useValidation } from "./ui";
 
 export function useInvalidateWork() {
   const qc = useQueryClient();
@@ -61,8 +61,13 @@ export default function TaskModal({
   const task = useQuery({ queryKey: ["task", taskId], queryFn: () => get<Task>(`/tasks/${taskId}`), enabled: open && !isNew });
   const [projectId, setProjectId] = useState<string | null>(defaultProjectId ?? null);
   const [draft, setDraft] = useState<Draft>(toDraft());
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const v = useValidation({
+    title: draft.title.trim() ? undefined : "Give the task a title.",
+    project: !isNew || projectId ? undefined : "Choose the project this task belongs to.",
+    due: draft.start_date && draft.due_date && draft.due_date < draft.start_date ? "Due date is before the start date." : undefined,
+  });
+  const resetValidation = v.reset;
 
   useEffect(() => {
     if (!open) return;
@@ -73,8 +78,8 @@ export default function TaskModal({
       setDraft(toDraft(task.data));
       setProjectId(task.data.project_id);
     }
-    setErrors({});
-  }, [open, isNew, task.data, defaultProjectId, defaultStatus]);
+    resetValidation();
+  }, [open, isNew, task.data, defaultProjectId, defaultStatus, resetValidation]);
 
   const milestones = useQuery({
     queryKey: ["milestones", projectId],
@@ -103,6 +108,7 @@ export default function TaskModal({
     },
     onSuccess: () => {
       invalidate();
+      toast(isNew ? "Task created" : "Task saved");
       onClose();
     },
   });
@@ -111,18 +117,14 @@ export default function TaskModal({
     onSuccess: () => {
       invalidate();
       setConfirmDelete(false);
+      toast("Task deleted", { tone: "neutral" });
       onClose();
     },
   });
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const next: Record<string, string> = {};
-    if (!draft.title.trim()) next.title = "Give the task a title.";
-    if (isNew && !projectId) next.project = "Choose a project.";
-    if (draft.start_date && draft.due_date && draft.due_date < draft.start_date) next.due = "Due date is before the start date.";
-    setErrors(next);
-    if (Object.keys(next).length === 0) save.mutate();
+    if (v.check()) save.mutate();
   };
 
   const gh = task.data?.source === "github";
@@ -135,7 +137,7 @@ export default function TaskModal({
         open={open}
         onClose={onClose}
         title={isNew ? "New task" : "Task"}
-        wide
+        panel
         footer={
           <>
             {!isNew && task.data?.source === "local" && (
@@ -174,12 +176,12 @@ export default function TaskModal({
               </p>
             )}
             {isNew && (
-              <Field label="Project" error={errors.project}>
-                {(p) => <ProjectSelect {...p} value={projectId} onChange={setProjectId} emptyLabel="Choose a project" />}
+              <Field label="Project" error={v.error("project")}>
+                {(p) => <ProjectSelect {...p} value={projectId} onChange={setProjectId} onBlur={() => v.blur("project")} emptyLabel="Choose a project" />}
               </Field>
             )}
-            <Field label="Title" error={errors.title}>
-              {(p) => <Input {...p} value={draft.title} onChange={(e) => set("title", e.target.value)} disabled={ghLocked} maxLength={500} />}
+            <Field label="Title" error={v.error("title")}>
+              {(p) => <Input {...p} value={draft.title} onChange={(e) => set("title", e.target.value)} onBlur={() => v.blur("title")} disabled={ghLocked} maxLength={500} />}
             </Field>
             {ghLocked && task.data?.description ? (
               <div>
@@ -221,8 +223,8 @@ export default function TaskModal({
               <Field label="Start date">
                 {(p) => <Input {...p} type="date" value={draft.start_date} onChange={(e) => set("start_date", e.target.value)} />}
               </Field>
-              <Field label="Due date" error={errors.due}>
-                {(p) => <Input {...p} type="date" value={draft.due_date} onChange={(e) => set("due_date", e.target.value)} />}
+              <Field label="Due date" error={v.error("due")}>
+                {(p) => <Input {...p} type="date" value={draft.due_date} onChange={(e) => set("due_date", e.target.value)} onBlur={() => v.blur("due")} />}
               </Field>
               <Field label="Milestone">
                 {(p) => (

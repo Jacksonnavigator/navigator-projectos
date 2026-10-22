@@ -160,12 +160,19 @@ def build_timeline(
         )
 
     project_rows = []
+    undated = []
     for p in projects:
         project_items = [i for i in items if i["project_id"] == p.id]
         project_ms = [m for m in ms_items if m["project_id"] == p.id]
-        has_target = p.target_date is not None and window_start <= p.target_date <= window_end
-        if not (project_items or project_ms or has_target) and project_ids is None:
-            continue
+        span_start = p.start_date or p.target_date
+        span_end = p.target_date or p.start_date
+        span_overlaps = bool(span_start and span_end and span_start <= window_end and span_end >= window_start)
+        if not (project_items or project_ms or span_overlaps):
+            # Projects with no dates at all are listed separately so nothing silently disappears.
+            if p.start_date is None and p.target_date is None and p.lifecycle not in ("completed", "archived"):
+                undated.append({"id": p.id, "name": p.name, "lifecycle": p.lifecycle, "priority": p.priority})
+            if project_ids is None:
+                continue
         project_rows.append(
             {
                 "id": p.id,
@@ -182,6 +189,7 @@ def build_timeline(
         "window_end": window_end,
         "today": today,
         "projects": project_rows,
+        "undated_projects": undated,
         "items": items,
         "milestones": ms_items,
         "releases": releases,

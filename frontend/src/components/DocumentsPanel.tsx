@@ -5,7 +5,7 @@ import { formatBytes, formatDateTime, titleCase } from "../lib/format";
 import { Markdown } from "../lib/markdown";
 import type { Doc, Page } from "../lib/types";
 import { ProjectSelect } from "./domain";
-import { Badge, Button, ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Input, LoadingBlock, Modal, Select, Textarea, Toolbar } from "./ui";
+import { Badge, Button, ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Input, LoadingBlock, Modal, Select, Textarea, Toolbar, toast, useValidation } from "./ui";
 
 const CATEGORIES = ["srs", "business_plan", "diagram", "wiring", "install", "research", "decision", "report", "other"];
 const CATEGORY_LABEL: Record<string, string> = { srs: "SRS", business_plan: "Business plan" };
@@ -30,7 +30,10 @@ export default function DocumentsPanel({ projectId }: { projectId?: string }) {
       if (projectId) fd.append("project_id", projectId);
       return api<Doc>("/documents/upload", { method: "POST", body: fd });
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["documents"] }),
+    onSuccess: (doc) => {
+      void qc.invalidateQueries({ queryKey: ["documents"] });
+      toast(`Uploaded “${doc.title}”`);
+    },
   });
 
   return (
@@ -38,7 +41,7 @@ export default function DocumentsPanel({ projectId }: { projectId?: string }) {
       <Toolbar>
         <div className="w-full sm:w-64">
           <label htmlFor="doc-search" className="mb-1 block text-xs font-medium text-muted">
-            Search
+            Search documents
           </label>
           <Input id="doc-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Title, description, notes" />
         </div>
@@ -125,9 +128,10 @@ function NoteForm({ open, onClose, projectId, onCreated }: { open: boolean; onCl
       onCreated(doc.id);
     },
   });
+  const v = useValidation({ title: title.trim() ? undefined : "Give the note a title." });
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (title.trim()) save.mutate();
+    if (v.check()) save.mutate();
   };
   return (
     <Modal
@@ -138,14 +142,14 @@ function NoteForm({ open, onClose, projectId, onCreated }: { open: boolean; onCl
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" form="note-form" busy={save.isPending} disabled={!title.trim()}>
+          <Button variant="primary" type="submit" form="note-form" busy={save.isPending}>
             Create note
           </Button>
         </>
       }
     >
       <form id="note-form" onSubmit={submit} className="space-y-4">
-        <Field label="Title">{(p) => <Input {...p} value={title} onChange={(e) => setTitle(e.target.value)} />}</Field>
+        <Field label="Title" error={v.error("title")}>{(p) => <Input {...p} value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => v.blur("title")} />}</Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Category">
             {(p) => (

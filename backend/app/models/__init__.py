@@ -113,6 +113,8 @@ class Project(UUIDPk, Timestamps, Base):
     target_date: Mapped[date | None] = mapped_column(Date)
     parent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Set when the project moves to the "completed" stage.
+    completed_on: Mapped[date | None] = mapped_column(Date)
 
     links: Mapped[list[ProjectLink]] = relationship(
         back_populates="project", cascade="all, delete-orphan", order_by="ProjectLink.created_at"

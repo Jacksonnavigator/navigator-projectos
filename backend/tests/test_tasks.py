@@ -175,3 +175,41 @@ def test_next_actions_list_each_task_once(api):
     actions = api.get("/api/v1/dashboard").json()["next_actions"]
     titles = [a["task"]["title"] for a in actions if "task" in a]
     assert titles == ["Blocked and due"]
+
+
+def test_completed_stage_and_dashboard_extras(api):
+    from datetime import date as d
+
+    done = api.post("/api/v1/projects", json={"name": "Old site", "lifecycle": "completed"}).json()
+    assert done["completed_on"] == d.today().isoformat()
+    p1 = api.post(
+        "/api/v1/projects", json={"name": "Focus", "lifecycle": "active", "priority": "P1", "next_action": "Do it"}
+    ).json()
+    soon = (d.today() + timedelta(days=5)).isoformat()
+    ms = api.post("/api/v1/milestones", json={"project_id": p1["id"], "title": "M1", "due_date": soon}).json()
+    t = _task(api, p1["id"], title="First", due_date=d.today().isoformat(), milestone_id=ms["id"])
+    _task(api, p1["id"], title="Second")
+    api.patch(f"/api/v1/tasks/{t['id']}", json={"status": "done"})
+    body = api.get("/api/v1/dashboard").json()
+    assert [c["name"] for c in body["completed_projects"]] == ["Old site"]
+    assert all(h["name"] != "Old site" for h in body["health"])
+    card = body["focus"][0]
+    assert card["name"] == "Focus" and card["progress"] == 0.5
+    assert card["next_milestone"]["title"] == "M1" and card["next_milestone"]["days_left"] == 5
+    assert card["next_task"]["title"] == "Second"
+    assert len(body["week"]) == 7 and sum(day["is_today"] for day in body["week"]) == 1
+    today_items = next(day for day in body["week"] if day["is_today"])["items"]
+    assert any(i["kind"] == "task" and i["task"]["title"] == "First" for i in today_items)
+    assert len(body["throughput"]) == 8 and body["throughput"][-1]["done"] == 1
+    # Moving out of "completed" clears the completion date.
+    reopened = api.patch(f"/api/v1/projects/{done['id']}", json={"lifecycle": "active"}).json()
+    assert reopened["completed_on"] is None
+
+
+def test_timeline_lists_undated_projects(api):
+    api.post("/api/v1/projects", json={"name": "No dates", "lifecycle": "idea"})
+    api.post("/api/v1/projects", json={"name": "Finished", "lifecycle": "completed"})
+    api.post("/api/v1/projects", json={"name": "Dated", "start_date": "2026-10-01", "target_date": "2027-01-31"})
+    body = api.get("/api/v1/timeline?start=2026-10-01&end=2026-12-31").json()
+    assert [p["name"] for p in body["undated_projects"]] == ["No dates"]
+    assert [p["name"] for p in body["projects"]] == ["Dated"]

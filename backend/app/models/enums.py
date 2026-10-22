@@ -1,6 +1,6 @@
 """Allowed values for status-like columns. Stored as text with CHECK constraints."""
 
-LIFECYCLES = ("idea", "planning", "active", "testing", "deployed", "paused", "archived")
+LIFECYCLES = ("idea", "planning", "active", "testing", "deployed", "completed", "paused", "archived")
 PRIORITIES = ("P1", "P2", "P3", "P4")
 TASK_STATUSES = ("backlog", "todo", "in_progress", "blocked", "in_review", "done")
 TASK_PRIORITIES = ("low", "medium", "high", "urgent")

@@ -1,10 +1,11 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ProjectSelect } from "../components/domain";
 import TaskModal from "../components/TaskModal";
-import { Button, EmptyState, ErrorState, LoadingBlock, PageHeader, Select, Toolbar, cx } from "../components/ui";
-import { get } from "../lib/api";
+import { LifecycleBadge, PriorityBadge } from "../components/domain";
+import { Button, EmptyState, ErrorState, InlineError, Input, LoadingBlock, Modal, PageHeader, Select, Toolbar, cx, toast } from "../components/ui";
+import { get, patch } from "../lib/api";
 import { addDays, DATE_SOURCE_LABEL, daysBetween, formatDate, STATUS_LABEL, todayIso } from "../lib/format";
 import type { TaskStatus, TimelineData, TimelineItem } from "../lib/types";
 
@@ -27,7 +28,7 @@ const BAR_COLOR: Record<TaskStatus, string> = {
 };
 
 type Row =
-  | { kind: "project"; id: string; name: string; target: string | null }
+  | { kind: "project"; id: string; name: string; start: string | null; target: string | null }
   | { kind: "task"; item: TimelineItem };
 
 export default function TimelinePage() {
@@ -119,6 +120,7 @@ export default function TimelinePage() {
         <Gantt data={data.data} start={start} days={cfg.days} px={cfg.px} zoom={zoom} onOpen={setOpenTask} />
       )}
       <Legend />
+      {data.data && data.data.undated_projects.length > 0 && <UndatedProjects projects={data.data.undated_projects} />}
       <TaskModal taskId={openTask} open={Boolean(openTask)} onClose={() => setOpenTask(null)} />
     </>
   );
@@ -128,7 +130,7 @@ function Gantt({ data, start, days, px, zoom, onOpen }: { data: TimelineData; st
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = [];
     for (const p of data.projects) {
-      out.push({ kind: "project", id: p.id, name: p.name, target: p.target_date });
+      out.push({ kind: "project", id: p.id, name: p.name, start: p.start_date, target: p.target_date });
       const items = data.items.filter((i) => i.project_id === p.id).sort((a, b) => a.start.localeCompare(b.start));
       for (const item of items) out.push({ kind: "task", item });
     }
@@ -212,6 +214,16 @@ function Gantt({ data, start, days, px, zoom, onOpen }: { data: TimelineData; st
                   </Link>
                 </div>
                 <div className="relative" style={{ width }}>
+                  {(row.start || row.target) && (
+                    <div
+                      className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-chart/35"
+                      style={{
+                        left: x(row.start ?? row.target!),
+                        width: Math.max(4, x(addDays(row.target ?? row.start!, 1)) - x(row.start ?? row.target!)),
+                      }}
+                      title={`Project: ${row.start ? formatDate(row.start) : "?"} → ${row.target ? formatDate(row.target) : "?"}`}
+                    />
+                  )}
                   {row.target && row.target >= start && daysBetween(start, row.target) < days && (
                     <div className="absolute top-1 bottom-1 border-l-2 border-dashed border-bad" style={{ left: x(row.target) }} title={`Project target date ${formatDate(row.target)}`} />
                   )}
@@ -290,7 +302,7 @@ function TaskRow({ item, top, width, x, start, days, onOpen }: {
           title={tooltip}
           aria-label={tooltip.replace(/\n/g, ". ")}
           className={cx(
-            "absolute top-1/2 h-5 -translate-y-1/2 overflow-hidden rounded px-1.5 text-left text-[11px] font-medium leading-5",
+            "absolute top-1/2 h-5 -translate-y-1/2 overflow-hidden rounded px-1.5 text-left text-xs font-medium leading-5",
             BAR_COLOR[item.status],
             item.overdue && "ring-2 ring-bad",
             !item.end && "border-r-2 border-dashed border-white/70 [mask-image:linear-gradient(to_right,black_70%,transparent)]",
@@ -321,7 +333,7 @@ function buildTicks(start: string, days: number, zoom: Zoom): { date: string; la
     } else if (zoom !== "week" && d.getUTCDate() === 1) {
       ticks.push({
         date: iso,
-        label: new Intl.DateTimeFormat(undefined, { month: "short", year: zoom === "quarter" || d.getUTCMonth() === 0 ? "2-digit" : undefined, timeZone: "UTC" }).format(d),
+        label: new Intl.DateTimeFormat(undefined, { month: "short", year: zoom === "quarter" || d.getUTCMonth() === 0 ? "numeric" : undefined, timeZone: "UTC" }).format(d),
       });
     }
   }
@@ -348,5 +360,96 @@ function Legend() {
       </span>
       <span>Fading bar = no end date</span>
     </div>
+  );
+}
+
+function UndatedProjects({ projects }: { projects: TimelineData["undated_projects"] }) {
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
+  return (
+    <section className="mt-6 rounded-lg border border-line bg-surface p-4" aria-labelledby="undated-h">
+      <h2 id="undated-h" className="text-sm font-semibold">
+        No dates yet ({projects.length})
+      </h2>
+      <p className="mb-3 text-xs text-muted">These projects have no start or target date and no dated tasks, so they can't be drawn. Give them dates to place them on the timeline.</p>
+      <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {projects.map((p) => (
+          <li key={p.id} className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-line px-3 py-2">
+            <span className="min-w-0">
+              <Link to={`/projects/${p.id}`} className="block truncate text-sm font-medium hover:underline">
+                {p.name}
+              </Link>
+              <span className="mt-0.5 flex gap-1">
+                <LifecycleBadge value={p.lifecycle} />
+                <PriorityBadge value={p.priority} />
+              </span>
+            </span>
+            <Button size="sm" onClick={() => setEditing({ id: p.id, name: p.name })}>
+              Set dates
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <SetDates project={editing} onClose={() => setEditing(null)} />
+    </section>
+  );
+}
+
+function SetDates({ project, onClose }: { project: { id: string; name: string } | null; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [startDate, setStartDate] = useState("");
+  const [target, setTarget] = useState("");
+  const save = useMutation({
+    mutationFn: () => patch(`/projects/${project!.id}`, { start_date: startDate || null, target_date: target || null }),
+    onSuccess: () => {
+      for (const key of ["timeline", "projects", "project", "dashboard"]) void qc.invalidateQueries({ queryKey: [key] });
+      toast(`Dates saved for ${project!.name}`);
+      setStartDate("");
+      setTarget("");
+      setTried(false);
+      onClose();
+    },
+  });
+  const invalid = Boolean(startDate && target && target < startDate);
+  const [tried, setTried] = useState(false);
+  const empty = !startDate && !target;
+  return (
+    <Modal
+      open={Boolean(project)}
+      onClose={onClose}
+      title={`Dates for ${project?.name ?? ""}`}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setTried(true);
+              if (!invalid && !empty) save.mutate();
+            }}
+            busy={save.isPending}
+          >
+            Save dates
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="sd-start" className="mb-1 block text-sm font-medium">
+            Start date
+          </label>
+          <Input id="sd-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor="sd-target" className="mb-1 block text-sm font-medium">
+            Target date
+          </label>
+          <Input id="sd-target" type="date" value={target} onChange={(e) => setTarget(e.target.value)} />
+        </div>
+      </div>
+      {invalid && <p className="mt-2 text-sm text-bad">The target date is before the start date.</p>}
+      {tried && empty && <p className="mt-2 text-sm text-bad">Enter a start date, a target date, or both.</p>}
+      <InlineError error={save.error} />
+    </Modal>
   );
 }

@@ -60,7 +60,7 @@ export default function LoginPage() {
             </a>
             {config.data?.dev_login_enabled && (
               <Button className="w-full" onClick={() => devLogin.mutate()} busy={devLogin.isPending}>
-                Development sign-in
+                Sign in for development
               </Button>
             )}
             <InlineError error={devLogin.error ?? config.error} />
